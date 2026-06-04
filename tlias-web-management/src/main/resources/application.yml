@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: tlias-web-management
+  # 数据库连接信息
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tlias
+    username: root
+    password: 123456
+  servlet:
+    multipart:
+      #最大单个文件大小
+      max-file-size: 10MB
+      #最大请求大小
+      max-request-size: 100MB
+
+# MyBatis 相关配置
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true #驼峰命名映射开关
+
+#配置事务管理日志级别
+logging:
+  level:
+    org.springframework.jdbc.support.JdbcTransactionManager: debug
+
+# AI 智能助手配置
+ai:
+  api-key: ${longcat-api}
+  api-url: https://api.longcat.chat/openai/v1/chat/completions
+  model: LongCat-2.0-Preview
+  max-tokens: 500
+  temperature: 0.3

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.EmpLogMapper">
+
+    <sql id="Base_Column_List">
+        el.id, el.operate_emp_id, el.operate_time, el.class_name,
+        el.method_name, el.method_params, el.return_value, el.cost_time,
+        e.name as operate_emp_name
+    </sql>
+
+    <!-- 分页查询日志列表 -->
+    <select id="pageList" resultType="com.itheima.pojo.EmpLog">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM emp_log el
+        LEFT JOIN emp e ON el.operate_emp_id = e.id
+        ORDER BY el.operate_time DESC
+        LIMIT #{start}, #{pageSize}
+    </select>
+
+    <!-- 统计日志总数 -->
+    <select id="count" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM emp_log
+    </select>
+
+</mapper>

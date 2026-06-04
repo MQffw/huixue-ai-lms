@@ -1,23 +1,107 @@
-# tlias 智能学习辅助系统
+# 🎓 Tlias 智能教学管理系统
 
-基于 Spring Boot 的培训管理系统，提供部门、员工、班级、学员等管理功能，集成 AI 智能助手支持自然语言查询业务数据。
+<div align="center">
 
-## 技术栈
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-18-blue.svg)](https://www.oracle.com/java/)
+[![Vue](https://img.shields.io/badge/Vue.js-3.x-4FC08D.svg)](https://vuejs.org)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+
+**基于 Spring Boot + Vue 3 的现代化培训管理系统，集成 AI 智能助手，支持自然语言查询业务数据**
+
+[📖 文档](API接口文档.md) · [🐛 问题反馈](https://github.com/MQffw/Tlias智能教学管理系统/issues)
+
+</div>
+
+---
+
+## ✨ 项目特色
+
+### 🎯 核心功能
+- **部门管理** - 企业组织架构管理，支持多级部门结构
+- **员工管理** - 员工信息、职位、薪资、工作经历管理
+- **班级管理** - 培训课程班级管理，支持学科分类
+- **学员管理** - 学员信息、学习进度、违纪记录跟踪
+- **数据统计** - 多维度数据可视化统计，支持图表展示
+- **文件上传** - 支持图片等资源上传，集成云存储
+
+### 🤖 AI 智能助手
+- **自然语言查询** - 使用自然语言查询业务数据，如"我们公司有多少个部门？"
+- **智能问答** - 支持上下文对话，记住对话历史
+- **数据洞察** - 自动分析业务数据并给出建议
+- **流式输出** - SSE 实时推送 AI 回答，提升用户体验
+
+### 🔐 安全特性
+- **JWT Token 认证** - 无状态认证方案
+- **接口权限控制** - 基于拦截器的权限管理
+- **操作日志记录** - 完整的操作审计日志
+- **数据验证** - 前后端双重数据验证
+
+### 🎨 用户体验
+- **响应式设计** - 完美适配桌面、平板、手机
+- **现代化UI** - 基于 Element Plus 的美观界面
+- **实时更新** - 数据变化实时反映
+- **操作友好** - 简洁直观的操作流程
+
+---
+
+## 📁 项目结构
+
+```
+web-ai-project02/
+├── 📄 README.md                    # 项目说明文档
+├── 📄 API接口文档.md                # 完整API接口文档
+├── 📁 tlias-web-management/        # 后端项目
+│   ├── 📁 src/                     # 源代码
+│   │   ├── 📁 main/
+│   │   │   ├── 📁 java/            # Java源码
+│   │   │   ├── 📁 resources/       # 配置文件
+│   │   │   └── 📁 mapper/          # MyBatis映射
+│   │   └── 📁 test/                # 测试代码
+│   ├── 📁 front-dist/              # 前端构建产物
+│   │   └── 📁 dist/
+│   │       ├── 📄 index.html        # 前端入口
+│   │       └── 📁 assets/           # 静态资源
+│   ├── 📄 pom.xml                   # Maven配置
+│   └── 📁 target/                  # 构建输出
+└── 📁 logs/                        # 日志文件
+```
+
+---
+
+## 🛠️ 技术栈
 
 ### 后端技术
-- Java 18
-- Spring Boot 3.5.13
-- MyBatis
-- MySQL
-- JWT 认证
-- LongCat AI（美团大模型）
+<div align="center">
+
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| Java | 18 | 编程语言 |
+| Spring Boot | 3.5.13 | 应用框架 |
+| MyBatis | 3.5.3 | ORM框架 |
+| MySQL | 8.0 | 数据库 |
+| JWT | - | 认证方案 |
+| LongCat AI | - | 美团大模型 |
+
+</div>
 
 ### 前端技术
-- Vue 3 + Vite
-- Element Plus UI
-- 前端构建产物位于 `tlias-web-management/front-dist/dist/`
+<div align="center">
 
-## 快速启动
+| 技术 | 说明 |
+|------|------|
+| Vue 3 | 渐进式JavaScript框架 |
+| Vite | 极速构建工具 |
+| Element Plus | Vue 3 UI组件库 |
+| Axios | Promise HTTP客户端 |
+| Vue Router | 路由管理 |
+| Pinia | 状态管理 |
+
+</div>
+
+---
+
+## 🚀 快速开始
 
 ### 环境要求
 
@@ -26,79 +110,129 @@
 - MySQL 8.0+
 - LongCat API Key（环境变量 `longcat-api`）
 
-### 数据库准备
+### 1. 克隆项目
 
-```sql
-CREATE DATABASE tlias DEFAULT CHARACTER SET utf8mb4;
+```bash
+git clone https://github.com/MQffw/Tlias智能教学管理系统.git
+cd Tlias智能教学管理系统
 ```
 
-修改数据库配置 `src/main/resources/application.yml`：
+### 2. 数据库配置
+
+```sql
+-- 创建数据库
+CREATE DATABASE tlias DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+修改 `tlias-web-management/src/main/resources/application.yml`：
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/tlias
+    url: jdbc:mysql://localhost:3306/tlias?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
     username: root
     password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# LongCat AI 配置
+longcat-api: your-api-key-here
 ```
 
-### 启动应用
+### 3. 启动项目
 
+**方式一：使用 Maven 直接运行**
 ```bash
 cd tlias-web-management
 mvn spring-boot:run
 ```
 
-或打包后运行：
-
+**方式二：打包后运行**
 ```bash
-mvn package
+cd tlias-web-management
+mvn clean package -DskipTests
 java -jar target/tlias-web-management-0.0.1-SNAPSHOT.jar
 ```
 
-### 访问地址
+### 4. 访问地址
 
-- 服务地址：`http://localhost:8080`
-- 前端地址：`http://localhost:8080`（自动加载前端静态资源）
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| 后端API | `http://localhost:8080` | RESTful API 接口 |
+| 前端界面 | `http://localhost:8080` | 自动加载前端静态资源 |
 
----
+### 5. 测试账号
 
-## 前端资源说明
+| 用户名 | 密码 | 权限 |
+|--------|------|------|
+| jinyong | 123456 | 管理员 |
+| songjiang | 123456 | 管理员 |
+| shinaian | 123456 | 管理员 |
 
-### front-dist 目录结构
+### 4. 访问系统
 
-```
-tlias-web-management/front-dist/
-└── dist/
-    ├── index.html          # 前端入口文件
-    ├── favicon.ico         # 网站图标
-    └── assets/             # 静态资源目录
-        ├── index.70e40127.js  # 打包后的JavaScript
-        └── index.99f0b67d.css # 打包后的CSS样式
-```
-
-### 前端特性
-
-- **现代化UI**：基于 Vue 3 + Element Plus 构建响应式界面
-- **单页应用**：使用 Vite 构建，提供快速的开发和构建体验
-- **自动部署**：后端服务启动时自动加载前端静态资源
-- **API集成**：前端自动调用后端API接口，实现完整的业务功能
-
-### 开发说明
-
-前端源码不包含在本仓库中，如需前端源码请单独获取。当前仓库只包含构建后的生产版本，位于 `front-dist/dist/` 目录下。
+- 🌐 **前端地址**：http://localhost:8080
+- 📡 **后端API**：http://localhost:8080
+- 🤖 **AI助手**：内置于系统中
 
 ---
 
-## API 接口文档
+## 🎯 功能模块
+
+### 1. 🤖 AI 智能助手
+基于 LongCat 大模型的智能助手，支持：
+- 通用聊天对话
+- 业务数据查询（部门、员工、班级、学员统计）
+- 上下文理解
+
+**测试账号**：
+```
+用户名：shinaian / songjiang / lujunyi
+密码：123456
+```
+
+### 2. 🏢 部门管理
+- 部门列表查询
+- 部门增删改查
+- 部门信息维护
+
+### 3. 👥 员工管理
+- 员工信息分页查询
+- 员工档案管理
+- 工作经历记录
+- 职位信息管理
+
+### 4. 🏫 班级管理
+- 班级信息维护
+- 班主任分配
+- 学科管理
+- 开班状态跟踪
+
+### 5. 👨‍🎓 学员管理
+- 学员档案管理
+- 班级分配
+- 学历信息统计
+- 违纪记录处理
+
+### 6. 📊 数据统计
+- 员工性别统计
+- 职位分布统计
+- 学员学历统计
+- 班级人数统计
+- 操作日志查询
+
+---
+
+## 📋 API 接口概览
 
 ### 通用响应格式
 
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| code | number | 响应码，1 成功，0 失败 |
-| msg | string | 提示信息 |
-| data | object | 返回数据 |
+```json
+{
+  "code": 1,
+  "msg": "success",
+  "data": {}
+}
+```
 
 ### 认证说明
 
@@ -110,473 +244,124 @@ token: eyJhbGciOiJIUzI1NiJ9...
 
 未认证请求返回 `401` 状态码。
 
----
+### 主要接口
 
-### 1. AI 智能助手
+| 模块 | 方法 | 路径 | 说明 |
+|------|------|------|------|
+| 登录 | POST | `/login` | 用户登录 |
+| AI助手 | POST | `/ai/chat` | 流式聊天 |
+| 部门 | GET | `/depts` | 部门列表 |
+| 员工 | GET | `/emps` | 员工列表 |
+| 班级 | GET | `/clazzs` | 班级列表 |
+| 学员 | GET | `/students` | 学员列表 |
+| 统计 | GET | `/report/*` | 数据统计 |
 
-基于 LongCat 大模型的 AI 助手，支持通用聊天和业务数据问答。
-
-#### 1.1 流式聊天（SSE）
-
-**POST** `/ai/chat`
-
-请求体：
-
-```json
-{
-  "message": "我们公司有多少个部门？",
-  "history": [
-    {"role": "user", "content": "你好"},
-    {"role": "assistant", "content": "你好！有什么可以帮助你的？"}
-  ]
-}
-```
-
-响应：SSE 流式返回
-
-```
-data: 根据
-
-data: 数据库查询
-
-data: 结果，
-
-data: 当前系统共有
-
-data: 5个部门。
-```
-
-#### 1.2 同步聊天
-
-**POST** `/ai/chat/sync`
-
-请求体同上，响应：
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": "根据数据库查询结果，当前系统共有 **5** 个部门。"
-}
-```
-
-#### 功能特性
-
-- **通用聊天**：回答各类问题，支持上下文对话
-- **数据问答**：自动查询数据库回答业务问题，如部门数量、员工信息、班级学员统计等
-- **流式输出**：SSE 实时推送 AI 回答，提升用户体验
-
-#### 测试账号
-
-```
-用户名：shinaian / songjiang / lujunyi
-密码：123456
-```
+📖 **详细API文档**：[API接口文档.md](API接口文档.md)
 
 ---
 
-### 2. 登录
+## 📸 系统截图
 
-**POST** `/login`
+> *（此处可添加系统界面截图）*
 
-请求体：
+---
 
-```json
-{
-  "username": "jinyong",
-  "password": "123456"
-}
+## 🤝 贡献指南
+
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送分支 (`git push origin feature/AmazingFeature`)
+5. 提交 Pull Request
+
+---
+
+## 📄 许可证
+
+本项目基于 [MIT](LICENSE) 许可证开源。
+
+---
+
+## 👨‍💻 作者
+
+**MQffw** - [GitHub](https://github.com/MQffw)
+
+---
+
+## 🤝 贡献指南
+
+我们欢迎各种形式的贡献！如果你想为这个项目做出贡献，请：
+
+1. **Fork** 这个项目
+2. 创建你的功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启一个 **Pull Request**
+
+### 贡献者
+感谢所有为这个项目做出贡献的开发者！
+
+---
+
+## 📋 许可证
+
+本项目基于 [MIT License](LICENSE) 开源，你可以自由使用、修改和分发。
+
 ```
+MIT License
 
-响应：
+Copyright (c) 2024 Tlias Team
 
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": {
-    "id": 2,
-    "username": "songjiang",
-    "name": "宋江",
-    "token": "eyJhbGciOiJIUzI1NiJ9..."
-  }
-}
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ---
 
-### 3. 部门管理
+## ⭐ 支持项目
 
-#### 3.1 查询部门列表
+如果这个项目对你有帮助，请给个 Star ⭐！你的支持是我们持续改进的动力！
 
-**GET** `/depts`
-
-响应示例：
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": [
-    {
-      "id": 1,
-      "name": "学工部",
-      "createTime": "2022-09-01T23:06:29",
-      "updateTime": "2022-09-01T23:06:29"
-    }
-  ]
-}
-```
-
-#### 3.2 根据 ID 查询部门
-
-**GET** `/depts/{id}`
-
-#### 3.3 添加部门
-
-**POST** `/depts`
-
-```json
-{
-  "name": "教研部"
-}
-```
-
-#### 3.4 修改部门
-
-**PUT** `/depts`
-
-```json
-{
-  "id": 1,
-  "name": "教研部"
-}
-```
-
-#### 3.5 删除部门
-
-**DELETE** `/depts?id=1`
+[![Star History Chart](https://api.star-history.com/svg?repos=MQffw/Tlias智能教学管理系统&type=Date)](https://star-history.com/#MQffw/Tlias智能教学管理系统&Date)
 
 ---
 
-### 4. 员工管理
+## 📞 联系方式
 
-#### 4.1 员工列表查询（分页）
-
-**GET** `/emps`
-
-| 参数 | 必须 | 说明 |
-|------|------|------|
-| name | 否 | 姓名 |
-| gender | 否 | 性别（1 男，2 女） |
-| begin | 否 | 入职开始日期 |
-| end | 否 | 入职结束日期 |
-| page | 是 | 页码，默认 1 |
-| pageSize | 是 | 每页记录数，默认 10 |
-
-响应示例：
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": {
-    "total": 2,
-    "rows": [
-      {
-        "id": 1,
-        "username": "jinyong",
-        "name": "金庸",
-        "gender": 1,
-        "job": 2,
-        "salary": 8000,
-        "entryDate": "2015-01-01",
-        "deptId": 2,
-        "deptName": "教研部"
-      }
-    ]
-  }
-}
-```
-
-#### 4.2 查询全部员工
-
-**GET** `/emps/list`
-
-#### 4.3 根据 ID 查询员工
-
-**GET** `/emps/{id}`
-
-#### 4.4 添加员工
-
-**POST** `/emps`
-
-```json
-{
-  "username": "linpingzhi",
-  "name": "林平之",
-  "gender": 1,
-  "job": 1,
-  "entryDate": "2022-09-18",
-  "deptId": 1,
-  "salary": 8000,
-  "exprList": [
-    {
-      "company": "百度科技股份有限公司",
-      "job": "java开发",
-      "begin": "2012-07-01",
-      "end": "2019-03-03"
-    }
-  ]
-}
-```
-
-#### 4.5 修改员工
-
-**PUT** `/emps`
-
-#### 4.6 删除员工
-
-**DELETE** `/emps?ids=1,2,3`
+如有问题或建议，欢迎：
+- 提交 [Issue](../../issues)
+- 发起 [Pull Request](../../pulls)
+- 联系作者：[MQffw](https://github.com/MQffw)
 
 ---
 
-### 5. 班级管理
+<div align="center">
 
-#### 5.1 班级列表查询（分页）
+**🎉 感谢使用 Tlias 智能教学管理系统！**
 
-**GET** `/clazzs`
-
-| 参数 | 必须 | 说明 |
-|------|------|------|
-| name | 否 | 班级名称 |
-| begin | 否 | 结课开始日期 |
-| end | 否 | 结课结束日期 |
-| page | 是 | 页码，默认 1 |
-| pageSize | 是 | 每页记录数，默认 10 |
-
-响应示例：
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": {
-    "total": 6,
-    "rows": [
-      {
-        "id": 7,
-        "name": "黄埔四期",
-        "room": "209",
-        "beginDate": "2023-08-01",
-        "endDate": "2024-02-15",
-        "masterId": 7,
-        "masterName": "纪晓芙",
-        "status": "已开班"
-      }
-    ]
-  }
-}
-```
-
-#### 5.2 查询所有班级
-
-**GET** `/clazzs/list`
-
-#### 5.3 根据 ID 查询班级
-
-**GET** `/clazzs/{id}`
-
-#### 5.4 添加班级
-
-**POST** `/clazzs`
-
-```json
-{
-  "name": "JavaEE就业166期",
-  "room": "101",
-  "beginDate": "2023-06-01",
-  "endDate": "2024-01-25",
-  "masterId": 7,
-  "subject": 1
-}
-```
-
-> subject: 1-java, 2-前端, 3-大数据, 4-Python, 5-Go, 6-嵌入式
-
-#### 5.5 修改班级
-
-**PUT** `/clazzs`
-
-#### 5.6 删除班级
-
-**DELETE** `/clazzs/{id}`
+[⬆ 回到顶部](#-tlias-智能教学管理系统)
 
 ---
 
-### 6. 学员管理
+<div align="center">
 
-#### 6.1 学员列表查询（分页）
+Made with ❤️ by Tlias Team
 
-**GET** `/students`
+</div>
 
-| 参数 | 必须 | 说明 |
-|------|------|------|
-| name | 否 | 学员姓名 |
-| degree | 否 | 学历（1 初中, 2 高中, 3 大专, 4 本科, 5 硕士, 6 博士） |
-| clazzId | 否 | 班级 ID |
-| page | 是 | 页码，默认 1 |
-| pageSize | 是 | 每页记录数，默认 10 |
-
-响应示例：
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": {
-    "total": 5,
-    "rows": [
-      {
-        "id": 3,
-        "name": "Lily",
-        "no": "2023001003",
-        "gender": 2,
-        "phone": "13309230912",
-        "degree": 4,
-        "clazzId": 1,
-        "clazzName": "黄埔班一期",
-        "violationCount": 2,
-        "violationScore": 5
-      }
-    ]
-  }
-}
-```
-
-#### 6.2 根据 ID 查询学员
-
-**GET** `/students/{id}`
-
-#### 6.3 添加学员
-
-**POST** `/students`
-
-```json
-{
-  "name": "阿大",
-  "no": "2024010801",
-  "gender": 1,
-  "phone": "15909091235",
-  "degree": 4,
-  "clazzId": 9
-}
-```
-
-#### 6.4 修改学员
-
-**PUT** `/students`
-
-#### 6.5 删除学员
-
-**DELETE** `/students/{ids}`
-
-> ids 为逗号分隔的 ID，如 `/students/1,2,3`
-
-#### 6.6 违纪处理
-
-**PUT** `/students/violation/{id}/{score}`
-
-> 扣除学员 `id` 的 `score` 分
-
----
-
-### 7. 文件上传
-
-**POST** `/upload`
-
-- Content-Type: `multipart/form-data`
-- 参数：`file`（最大 10MB）
-
-响应：
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": "https://xxx.jpg"
-}
-```
-
----
-
-### 8. 数据统计
-
-#### 8.1 员工性别统计
-
-**GET** `/report/empGenderData`
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": [
-    {"name": "男性员工", "value": 5},
-    {"name": "女性员工", "value": 6}
-  ]
-}
-```
-
-#### 8.2 员工职位统计
-
-**GET** `/report/empJobData`
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": {
-    "jobList": ["教研主管","学工主管","其他","班主任","咨询师","讲师"],
-    "dataList": [1,1,2,6,8,13]
-  }
-}
-```
-
-#### 8.3 学员学历统计
-
-**GET** `/report/studentDegreeData`
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": [
-    {"name": "本科", "value": 182},
-    {"name": "大专", "value": 126}
-  ]
-}
-```
-
-#### 8.4 班级人数统计
-
-**GET** `/report/studentCountData`
-
-```json
-{
-  "code": 1,
-  "msg": "success",
-  "data": {
-    "clazzList": ["Java就业100期","Java就业101期"],
-    "dataList": [77,82]
-  }
-}
-```
-
-#### 8.5 日志查询
-
-**GET** `/log/page`
-
-| 参数 | 必须 | 说明 |
-|------|------|------|
-| page | 是 | 页码，默认 1 |
-| pageSize | 是 | 每页记录数，默认 10 |
+</div>

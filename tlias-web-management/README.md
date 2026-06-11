@@ -30,27 +30,12 @@
 - **智能问答** - 支持上下文对话，记住对话历史
 - **数据洞察** - 自动分析业务数据并给出建议
 - **流式输出** - SSE 实时推送 AI 回答，提升用户体验
-- **安全SQL生成** - AI生成的SQL经过多层安全校验，确保只执行安全的SELECT查询
 
 ### 🔐 安全特性
 - **JWT Token 认证** - 无状态认证方案
 - **接口权限控制** - 基于拦截器的权限管理
 - **操作日志记录** - 完整的操作审计日志
 - **数据验证** - 前后端双重数据验证
-
-#### 🛡️ NLP转SQL安全加固（面试超级加分）
-- **高危语句拦截** - 自动拦截 DROP/ALTER/DELETE/TRUNCATE/UPDATE/INSERT 等危险操作
-- **SQL白名单机制** - 只允许访问 emp、dept、student、clazz 四张业务表
-- **SQL注入防御** - 关键字过滤（UNION、INTO、LOAD、BENCHMARK等）、预编译查询、参数化查询
-- **AI生成SQL校验器** - 专用安全组件校验非法语句，直接抛出异常阻断执行
-- **子查询深度限制** - 最多允许2层嵌套，防止性能问题
-- **注释符过滤** - 自动移除 `--` 和 `/**/` 注释，防止注入绕过
-- **SQL注入防护** - 预编译查询 + 参数化查询，防止SQL注入攻击
-- **SQL白名单机制** - 只允许访问 emp/dept/student/clazz 四张业务表
-- **高危语句拦截** - 自动拦截 DROP/ALTER/DELETE/TRUNCATE/UPDATE/INSERT 等危险操作
-- **关键字黑名单** - 过滤 UNION/INTO/LOAD/BENCHMARK/SLEEP 等危险关键字
-- **SQL注入模式检测** - 正则匹配常见SQL注入模式（如 OR 1=1、UNION SELECT等）
-- **AI生成SQL校验** - 专用安全校验器，非法SQL直接抛出异常阻断执行
 
 ### 🎨 用户体验
 - **响应式设计** - 完美适配桌面、平板、手机
@@ -89,16 +74,14 @@ web-ai-project02/
 ### 后端技术
 <div align="center">
 
-| 技术 | 版本     | 说明 |
-|------|--------|------|
-| Java | 18     | 编程语言 |
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| Java | 18 | 编程语言 |
 | Spring Boot | 3.5.13 | 应用框架 |
-| MyBatis | 3.5.3  | ORM框架 |
-| MySQL | 5.5     | 数据库 |
-| JWT | -      | 认证方案 |
-| LongCat AI | -      | 美团大模型 |
-| **SQL安全组件** | -      | NLP转SQL安全加固（白名单、注入防御、预编译） |
-| SQL安全校验器 | -      | 自定义SQL安全组件（白名单、注入防御） |
+| MyBatis | 3.5.3 | ORM框架 |
+| MySQL | 8.0 | 数据库 |
+| JWT | - | 认证方案 |
+| LongCat AI | - | 美团大模型 |
 
 </div>
 
@@ -175,7 +158,7 @@ java -jar target/tlias-web-management-0.0.1-SNAPSHOT.jar
 | 服务 | 地址 | 说明 |
 |------|------|------|
 | 后端API | `http://localhost:8080` | RESTful API 接口 |
-| 前端界面 | `http://localhost:8081` | Nginx 托管前端静态资源 |
+| 前端界面 | `http://localhost:8080` | 自动加载前端静态资源 |
 
 ### 5. 测试账号
 
@@ -185,9 +168,9 @@ java -jar target/tlias-web-management-0.0.1-SNAPSHOT.jar
 | songjiang | 123456 | 管理员 |
 | shinaian | 123456 | 管理员 |
 
-### 5. 访问系统
+### 4. 访问系统
 
-- 🌐 **前端地址**：http://localhost:8081
+- 🌐 **前端地址**：http://localhost:8080
 - 📡 **后端API**：http://localhost:8080
 - 🤖 **AI助手**：内置于系统中
 
@@ -200,7 +183,6 @@ java -jar target/tlias-web-management-0.0.1-SNAPSHOT.jar
 - 通用聊天对话
 - 业务数据查询（部门、员工、班级、学员统计）
 - 上下文理解
-- **安全沙箱** - AI生成的SQL在安全沙箱中执行，多层防护确保数据库安全
 
 **测试账号**：
 ```

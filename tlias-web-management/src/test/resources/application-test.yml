@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tlias_test
+    username: root
+    password: 123456
+
+# AI 智能助手配置（测试环境）
+ai:
+  api-key: ${longcat-api:test-api-key}
+  api-url: https://api.longcat.chat/openai/v1/chat/completions
+  model: LongCat-2.0-Preview
+  max-tokens: 500
+  temperature: 0.3
+
+# MyBatis 相关配置
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+
+# 配置事务管理日志级别
+logging:
+  level:
+    org.springframework.jdbc.support.JdbcTransactionManager: debug
+    com.itheima.security.sql: debug

@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.itheima.security.sql.SecureSqlExecutor;
+import com.itheima.security.sql.SqlSecurityException;
+import com.itheima.security.sql.SqlSecurityValidator;
 import com.itheima.service.AiChatService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -21,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Service
@@ -43,7 +44,10 @@ public class AiChatServiceImpl implements AiChatService {
     private double temperature;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private SecureSqlExecutor secureSqlExecutor;
+
+    @Autowired
+    private SqlSecurityValidator sqlSecurityValidator;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -55,6 +59,15 @@ public class AiChatServiceImpl implements AiChatService {
             2. 禁止调用任何工具或函数
             3. 回答简洁明了，用中文
             4. 当用户询问业务数据时，你只能回复一条可执行的 SQL 语句，不要加任何解释文字，不要编造数据
+            5. SQL 语句必须严格遵循安全规范：
+               - 只允许 SELECT 查询，禁止 DROP/ALTER/DELETE/TRUNCATE/UPDATE/INSERT/REPLACE/MERGE 等危险操作
+               - 只能访问以下表：emp、dept、student、clazz，禁止访问其他表或系统表
+               - 禁止使用 UNION、INTO OUTFILE、LOAD_FILE、BENCHMARK、SLEEP、WAITFOR、SHUTDOWN 等危险关键字
+               - 禁止使用的函数：CHAR()、CONCAT()、HEX()、UNHEX()、ASCII()、ORD()、LOAD_FILE()、INTO OUTFILE
+               - 不要包含任何注释（如 -- 或 /* */）
+               - 不要使用子查询嵌套（最多允许2层）
+               - 使用参数化查询格式（如 WHERE id = ?）
+               - SQL 语句必须简单直接，避免复杂函数调用
 
             数据库表结构：
             - dept: id, name, create_time, update_time （部门表）
@@ -68,6 +81,9 @@ public class AiChatServiceImpl implements AiChatService {
 
             用户：学生男女比例
             回复：SELECT gender, COUNT(*) as count FROM student GROUP BY gender
+
+            用户：查找名字包含"张"的学生
+            回复：SELECT * FROM student WHERE name LIKE '%张%'
             """;
 
     @Override
@@ -299,28 +315,17 @@ public class AiChatServiceImpl implements AiChatService {
         return sql.trim();
     }
 
+    /**
+     * 使用安全执行器执行 SQL 查询
+     * @param sql AI 生成的 SQL 语句
+     * @return 查询结果或错误信息
+     */
     private String executeQuery(String sql) {
-        // 安全检查：只允许 SELECT 查询
-        String upperSql = sql.toUpperCase().trim();
-        if (!upperSql.startsWith("SELECT")) {
-            return "[安全限制] 只允许 SELECT 查询";
-        }
-
-        // 禁止危险操作
-        if (upperSql.contains("DELETE") || upperSql.contains("UPDATE") ||
-                upperSql.contains("INSERT") || upperSql.contains("DROP") ||
-                upperSql.contains("ALTER") || upperSql.contains("TRUNCATE")) {
-            return "[安全限制] 只允许 SELECT 查询";
-        }
-
         try {
-            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql);
-            if (results == null || results.isEmpty()) {
-                return "查询结果为空";
-            }
-            return objectMapper.writeValueAsString(results);
+            // 使用安全执行器（包含白名单校验、预编译、注入防御）
+            return secureSqlExecutor.executeQuery(sql);
         } catch (Exception e) {
-            log.warn("SQL 执行失败: {}", sql, e);
+            log.error("安全SQL执行器异常", e);
             return "[查询失败] " + e.getMessage();
         }
     }

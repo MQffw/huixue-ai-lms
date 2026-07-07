@@ -16,6 +16,20 @@
         <foreach collection='exprList' item='expr' separator=','>
             (#{expr.empId},#{expr.begin},#{expr.end},#{expr.company},#{expr.job})
             </foreach>
-
     </insert>
+
+    <select id="findByEmpId" resultType="com.itheima.pojo.EmpExpr">
+        SELECT id, emp_id, begin, end, company, job FROM emp_expr WHERE emp_id = #{empId} ORDER BY begin DESC
+    </select>
+
+    <select id="findEmpIdsWithExpr" resultType="java.lang.Integer">
+        SELECT DISTINCT emp_id FROM emp_expr
+    </select>
+
+    <select id="findAllWithEmpName" resultType="java.util.Map">
+        SELECT e.name AS empName, ex.begin, ex.end, ex.company, ex.job
+        FROM emp_expr ex
+        LEFT JOIN emp e ON ex.emp_id = e.id
+        ORDER BY e.name, ex.begin
+    </select>
 </mapper>

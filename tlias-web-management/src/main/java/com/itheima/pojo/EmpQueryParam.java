@@ -1,19 +1,19 @@
 package com.itheima.pojo;
 
 import lombok.Data;
-import org.springframework.format.annotation.DateTimeFormat;
-
+import lombok.EqualsAndHashCode;
 import java.time.LocalDate;
 
+/**
+ * 员工查询参数
+ */
 @Data
-public class EmpQueryParam {
-    private Integer page = 1;
-    private Integer pageSize = 10;
+@EqualsAndHashCode(callSuper = true)
+public class EmpQueryParam extends PageQueryParam {
+
     private String name;
     private Integer gender;
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate begin;
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate end;
-    private Integer start;
+    private LocalDate beginDate;
+    private LocalDate endDate;
+    private Integer deptId;
 }

@@ -1,39 +1,70 @@
 package com.itheima.utils;
 
+import com.itheima.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PostConstruct;
 import java.util.Date;
 import java.util.Map;
 
+/**
+ * JWT工具类 - 支持密钥轮换
+ */
+@Component
 public class JwtUtils {
-
-    private static final String SECRET_KEY = "aXRoZWltYQ=="; // 秘钥
-    private static final long EXPIRATION_TIME = 12 * 60 * 60 * 1000; // 12小时
-
-    /**
-     * 生成JWT令牌
-     * @param claims 令牌中包含的信息
-     * @return 生成的JWT令牌字符串
-     */
-    public static String generateToken(Map<String, Object> claims) {
+    
+    private final JwtConfig jwtConfig;
+    private String currentSecret;
+    private String previousSecret;
+    
+    public JwtUtils(JwtConfig jwtConfig) {
+        this.jwtConfig = jwtConfig;
+    }
+    
+    @PostConstruct
+    public void init() {
+        this.currentSecret = jwtConfig.getSecret();
+        // 优先读取环境变量，否则用硬编码旧密钥兜底（密钥轮换过渡期用，生产移除）
+        String envPrev = System.getenv("JWT_PREVIOUS_SECRET");
+        this.previousSecret = (envPrev != null && !envPrev.isEmpty()) ? envPrev : "aXRoZWltYQ==";
+    }
+    
+    public String generateToken(Map<String, Object> claims) {
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
+                .signWith(SignatureAlgorithm.HS256, currentSecret)
                 .addClaims(claims)
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtConfig.getExpiration()))
                 .compact();
     }
-
-    /**
-     * 解析JWT令牌
-     * @param token 要解析的JWT令牌字符串
-     * @return 包含令牌信息的Claims对象
-     * @throws Exception 如果令牌无效或已过期，则抛出异常
-     */
-    public static Claims parseToken(String token) throws Exception {
+    
+    public Claims parseToken(String token) throws Exception {
+        try {
+            return parseWithSecret(token, currentSecret);
+        } catch (Exception e) {
+            if (previousSecret != null && !previousSecret.isEmpty()) {
+                try {
+                    return parseWithSecret(token, previousSecret);
+                } catch (Exception ex) {
+                    throw ex;
+                }
+            }
+            throw e;
+        }
+    }
+    
+    private Claims parseWithSecret(String token, String secret) throws Exception {
         return Jwts.parser()
-                .setSigningKey(SECRET_KEY)
+                .setSigningKey(secret)
                 .parseClaimsJws(token)
                 .getBody();
+    }
+    
+    public boolean shouldRenew(Claims claims) {
+        Date expiration = claims.getExpiration();
+        long timeUntilExpiry = expiration.getTime() - System.currentTimeMillis();
+        return timeUntilExpiry > 0 && timeUntilExpiry < jwtConfig.getRenewalThreshold();
     }
 }

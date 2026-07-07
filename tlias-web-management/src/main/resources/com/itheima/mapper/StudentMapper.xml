@@ -4,36 +4,52 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.itheima.mapper.StudentMapper">
 
-    <sql id="Base_Column_List">
-        s.id, s.name, s.no, s.gender, s.phone,
-        s.id_card, s.is_college, s.address, s.degree,
-        s.graduation_date, s.clazz_id, s.violation_count,
-        s.violation_score, s.create_time, s.update_time,
-        c.name as clazzName
-    </sql>
+    <!-- 通用结果映射 -->
+    <resultMap id="StudentResultMap" type="com.itheima.pojo.Student">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="no" property="no" />
+        <result column="gender" property="gender" />
+        <result column="phone" property="phone" />
+        <result column="id_card" property="idCard" />
+        <result column="is_college" property="isCollege" />
+        <result column="address" property="address" />
+        <result column="degree" property="degree" />
+        <result column="graduation_date" property="graduationDate" />
+        <result column="clazz_id" property="clazzId" />
+        <result column="violation_count" property="violationCount" />
+        <result column="violation_score" property="violationScore" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
 
-    <!-- 条件分页查询 -->
-    <select id="pageList" resultType="com.itheima.pojo.Student">
-        SELECT
-        <include refid="Base_Column_List"/>
+    <!-- 分页条件查询 -->
+    <select id="pageList" resultMap="StudentResultMap">
+        SELECT s.*, c.name as clazzName
         FROM student s
         LEFT JOIN clazz c ON s.clazz_id = c.id
         <where>
             <if test="name != null and name != ''">
                 AND s.name LIKE CONCAT('%', #{name}, '%')
             </if>
+            <if test="clazzId != null">
+                AND s.clazz_id = #{clazzId}
+            </if>
             <if test="degree != null">
                 AND s.degree = #{degree}
             </if>
-            <if test="clazzId != null">
-                AND s.clazz_id = #{clazzId}
+            <if test="beginDate != null">
+                AND s.create_time >= #{beginDate}
+            </if>
+            <if test="endDate != null">
+                AND s.create_time &lt;= #{endDate}
             </if>
         </where>
         ORDER BY s.create_time DESC
         LIMIT #{start}, #{pageSize}
     </select>
 
-    <!-- 统计总记录数 -->
+    <!-- 统计总数 -->
     <select id="count" resultType="java.lang.Long">
         SELECT COUNT(*)
         FROM student s
@@ -42,38 +58,38 @@
             <if test="name != null and name != ''">
                 AND s.name LIKE CONCAT('%', #{name}, '%')
             </if>
+            <if test="clazzId != null">
+                AND s.clazz_id = #{clazzId}
+            </if>
             <if test="degree != null">
                 AND s.degree = #{degree}
             </if>
-            <if test="clazzId != null">
-                AND s.clazz_id = #{clazzId}
+            <if test="beginDate != null">
+                AND s.create_time >= #{beginDate}
+            </if>
+            <if test="endDate != null">
+                AND s.create_time &lt;= #{endDate}
             </if>
         </where>
     </select>
 
-    <!-- 批量删除学员 -->
+    <!-- 批量删除 -->
     <delete id="deleteByIds">
         DELETE FROM student WHERE id IN
-        <foreach collection="ids" item="id" separator="," open="(" close=")">
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
     </delete>
 
     <!-- 新增学员 -->
-    <insert id="insert" parameterType="com.itheima.pojo.Student">
-        INSERT INTO student (name, no, gender, phone, id_card,
-                           is_college, address, degree, graduation_date,
-                           clazz_id, violation_count, violation_score,
-                           create_time, update_time)
-        VALUES (#{name}, #{no}, #{gender}, #{phone}, #{idCard},
-                #{isCollege}, #{address}, #{degree}, #{graduationDate},
-                #{clazzId}, 0, 0, NOW(), NOW())
+    <insert id="insert" parameterType="com.itheima.pojo.Student" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student (name, no, gender, phone, id_card, is_college, address, degree, graduation_date, clazz_id, violation_count, violation_score, create_time, update_time)
+        VALUES (#{name}, #{no}, #{gender}, #{phone}, #{idCard}, #{isCollege}, #{address}, #{degree}, #{graduationDate}, #{clazzId}, #{violationCount}, #{violationScore}, #{createTime}, #{updateTime})
     </insert>
 
     <!-- 根据ID查询 -->
-    <select id="getById" resultType="com.itheima.pojo.Student">
-        SELECT
-        <include refid="Base_Column_List"/>
+    <select id="getById" resultMap="StudentResultMap">
+        SELECT s.*, c.name as clazzName
         FROM student s
         LEFT JOIN clazz c ON s.clazz_id = c.id
         WHERE s.id = #{id}
@@ -86,22 +102,30 @@
             <if test="name != null and name != ''">name = #{name},</if>
             <if test="no != null and no != ''">no = #{no},</if>
             <if test="gender != null">gender = #{gender},</if>
-            <if test="phone != null and phone != ''">phone = #{phone},</if>
-            <if test="idCard != null and idCard != ''">id_card = #{idCard},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
             <if test="isCollege != null">is_college = #{isCollege},</if>
-            <if test="address != null and address != ''">address = #{address},</if>
+            <if test="address != null">address = #{address},</if>
             <if test="degree != null">degree = #{degree},</if>
             <if test="graduationDate != null">graduation_date = #{graduationDate},</if>
             <if test="clazzId != null">clazz_id = #{clazzId},</if>
             <if test="violationCount != null">violation_count = #{violationCount},</if>
             <if test="violationScore != null">violation_score = #{violationScore},</if>
-            update_time = NOW()
+            update_time = #{updateTime}
         </set>
         WHERE id = #{id}
     </update>
 
-    <!-- 违纪处理（原子更新） -->
+    <!-- 更新违纪分数 -->
     <update id="updateViolation">
+        UPDATE student
+        SET violation_score = violation_score + #{score},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 新增违纪时联动更新学员表的 count 和 score -->
+    <update id="incrementViolation">
         UPDATE student
         SET violation_count = violation_count + 1,
             violation_score = violation_score + #{score},
@@ -110,9 +134,9 @@
     </update>
 
     <!-- 统计学员学历分布 -->
-    <select id="countStudentDegreeData" resultType="java.util.Map">
+    <select id="countStudentDegreeData" resultType="map">
         SELECT
-            (CASE degree
+            CASE degree
                 WHEN 1 THEN '初中'
                 WHEN 2 THEN '高中'
                 WHEN 3 THEN '大专'
@@ -120,22 +144,26 @@
                 WHEN 5 THEN '硕士'
                 WHEN 6 THEN '博士'
                 ELSE '其他'
-            END) AS pos,
-            COUNT(*) AS num
+            END as pos,
+            COUNT(*) as num
         FROM student
+        WHERE degree IS NOT NULL
         GROUP BY degree
-        ORDER BY degree
     </select>
 
-    <!-- 统计各班级学员人数 -->
-    <select id="countStudentClazzData" resultType="java.util.Map">
-        SELECT
-            c.name AS pos,
-            COUNT(s.id) AS num
+    <!-- 统计学员性别分布 -->
+    <select id="countStudentGenderData" resultType="map">
+        SELECT CASE WHEN gender = 1 THEN '男' ELSE '女' END as pos, COUNT(*) as num
+        FROM student GROUP BY gender
+    </select>
+
+    <!-- 统计学员班级分布 -->
+    <select id="countStudentClazzData" resultType="map">
+        SELECT c.name as pos, COUNT(s.id) as num
         FROM clazz c
-        LEFT JOIN student s ON c.id = s.clazz_id
+        LEFT JOIN student s ON s.clazz_id = c.id
         GROUP BY c.id, c.name
-        ORDER BY COUNT(s.id) ASC
+        ORDER BY num DESC, c.id
     </select>
 
 </mapper>

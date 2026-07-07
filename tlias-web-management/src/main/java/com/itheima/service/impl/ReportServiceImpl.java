@@ -51,27 +51,11 @@ public class ReportServiceImpl implements ReportService {
     public ClazzCountOption getStudentCountData() {
         List<Map<String, Object>> list = studentMapper.countStudentClazzData();
 
-        // 对班级名称进行智能截断处理，确保前端显示完整
-        List<Object> clazzList = list.stream().map(dataMap -> {
-            String clazzName = dataMap.get("pos").toString();
-            return (Object) truncateClazzName(clazzName);
-        }).toList();
+        List<Object> clazzList = list.stream().map(dataMap -> dataMap.get("pos")).toList();
 
         List<Object> dataList = list.stream().map(dataMap -> dataMap.get("num")).toList();
         return new ClazzCountOption(clazzList, dataList);
     }
 
-    /**
-     * 固定6个字符换行显示
-     */
-    private String truncateClazzName(String clazzName) {
-        // 如果长度不超过6个字符，直接返回
-        if (clazzName.length() <= 6) {
-            return clazzName;
-        }
-
-        // 固定在第6个字符后换行
-        return clazzName.substring(0, 6) + "\n" + clazzName.substring(6);
-    }
 
 }

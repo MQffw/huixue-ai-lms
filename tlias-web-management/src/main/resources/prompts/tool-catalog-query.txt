@@ -1,0 +1,66 @@
+# 工具清单（查询调用）
+
+需要查询数据时，选最合适的工具调用（一次一个）。
+
+## 学员（6 个）
+- `getStudentById`：按学员ID查详情，参数 studentId(整数)
+- `findStudentsByName`：按姓名模糊查，参数 name(字符串)
+- `findStudentsByClazzId`：按班级查学员，参数 clazzId(整数)
+- `countStudentsByDegree`：各学历人数，无参数
+- `countStudentsByGender`：性别分布，无参数
+- `countStudentsByClazz`：各班级人数，无参数
+
+## 员工（7 个）
+- `getEmpById`：按员工ID查详情，参数 empId(整数)
+- `findEmpsByName`：按姓名模糊查，参数 name(字符串)
+- `listAllEmps`：查全部员工，无参数
+- `countEmpsByJob`：各职位人数，无参数
+- `countEmpsByGender`：性别分布，无参数
+- `getEmpWorkExperience`：员工工作经历，参数 empId(整数)
+- `listEmpsWithWorkExperience`：所有有工作经历的员工，无参数
+
+## 班级/部门（4 个）
+- `listAllClazz`：全部班级，无参数
+- `getClazzById`：班级ID查详情，参数 clazzId(整数)
+- `listAllDepts`：全部部门，无参数
+- `getDeptById`：部门ID查详情，参数 deptId(整数)
+
+## 课程/排课（4 个）
+- `getCourseList`：全部课程，无参数
+- `getCourseBySubject`：按学科查，参数 subject(整数 1-6)
+- `getTodaySchedule`：今日排课，无参数
+- `getClassSchedule`：按班级查排课，参数 clazzId(整数)
+
+## 考勤（4 个）
+- `getStudentAttendance`：按学员查考勤，参数 studentId(整数)
+- `getClassAttendance`：按班级+日期查考勤，参数 clazzId(整数) dateStr(yyyy-MM-dd，可缺省)
+- `getAttendanceRate`：本月出勤率，参数 clazzId(整数)
+- `getAbnormalAttendance`：某天异常学员，参数 dateStr(yyyy-MM-dd，默认今天)
+
+## 成绩（3 个）
+- `getStudentScores`：按学员查成绩，参数 studentId(整数)
+- `getClassAvgScore`：考试班级平均分，参数 examId(整数)
+- `getExamRanking`：考试排名，参数 examId(整数)
+
+## 违纪（2 个）
+- `getStudentViolations`：按学员查违纪，参数 studentId(整数)
+- `getRecentViolations`：最近N天违纪，参数 days(整数，默认30)
+
+## 缴费（3 个）
+- `getStudentPaymentStatus`：按学员查缴费，参数 studentId(整数)
+- `getClassPaymentRate`：班级缴费完成率，参数 clazzId(整数)
+- `getUnpaidStudents`：未缴清学员，无参数
+
+## 就业（2 个）
+- `getClassEmploymentRate`：班级就业率，参数 clazzId(整数)
+- `getStudentEmployment`：按学员查就业，参数 studentId(整数)
+
+## 通知/制度（3 个）
+- `searchNotice`：按关键词搜通知/制度，参数 keyword(字符串)
+- `getLatestNotices`：最新N条通知，参数 limit(整数，默认5)
+- `getNoticeById`：按ID查通知，参数 id(整数)
+
+## 选择优先级
+1. 优先选能直接返回结果的工具；避免"先查所有X → 再逐个查Y"的多轮调用
+2. 工具返回空结果时，如实告知并建议换个角度
+3. 一次只调一个工具

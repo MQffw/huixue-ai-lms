@@ -1,6 +1,6 @@
 package com.itheima.service.impl;
 
-import com.itheima.mapper.EmpExprMapper;
+import com.itheima.ai.cache.AiAnswerCache;
 import com.itheima.mapper.EmpMapper;
 import com.itheima.pojo.*;
 import com.itheima.service.EmpService;
@@ -9,100 +9,112 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
 public class EmpServiceImpl implements EmpService {
-
+    
     @Autowired
     private EmpMapper empMapper;
+
     @Autowired
-    private EmpExprMapper empExprMapper;
-
-    public EmpServiceImpl(EmpMapper empMapper) {
-        this.empMapper = empMapper;
-    }
-
+    private AiAnswerCache aiAnswerCache;
+    
+    @Autowired
+    private JwtUtils jwtUtils;
+    
     @Override
-    public PageResult<Emp> page(EmpQueryParam empQueryParam) {
-        Long total = empMapper.count();
-
-        // 计算 start 并 set 到参数对象里
-        Integer start = (empQueryParam.getPage() - 1) * empQueryParam.getPageSize();
-        empQueryParam.setStart(start); // 关键！
-
-        List<Emp> rows = empMapper.list(empQueryParam);
-        return new PageResult<>(total, rows);
+    public LoginInfo login(Emp emp) {
+        Emp dbEmp = empMapper.findByUsername(emp.getUsername());
+        
+        if (dbEmp == null || !dbEmp.getPassword().equals(emp.getPassword())) {
+            return null;
+        }
+        
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("id", dbEmp.getId());
+        claims.put("username", dbEmp.getUsername());
+        claims.put("role", "ADMIN");
+        
+        String token = jwtUtils.generateToken(claims);
+        
+        return new LoginInfo(dbEmp.getId(), dbEmp.getUsername(), dbEmp.getName(), token);
     }
-
-    @Transactional//事务管理
+    
     @Override
+    public PageResult<Emp> page(EmpQueryParam param) {
+        Long count = empMapper.count(param);
+        List<Emp> rows = empMapper.pageList(param);
+        return new PageResult<>(count, rows);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void save(Emp emp) {
-        //1.保存员工基本信息
-        emp.setCreateTime(LocalDateTime.now());
-        emp.setUpdateTime(LocalDateTime.now());
-        empMapper.insert(emp);
-
-        //2.保存员工工作经历
-        List<EmpExpr> exprList = emp.getExprList();
-        if (!CollectionUtils.isEmpty(exprList)){
-            exprList.forEach(empExpr -> {
-                empExpr.setEmpId(emp.getId());
-            });
-            empExprMapper.insertBatch(exprList);
+        try {
+            emp.setCreateTime(LocalDateTime.now());
+            emp.setUpdateTime(LocalDateTime.now());
+            empMapper.insert(emp);
+            log.info("新增员工成功: id={}, username={}", emp.getId(), emp.getUsername());
+            aiAnswerCache.clear();
+        } catch (Exception e) {
+            log.error("新增员工失败: username={}", emp.getUsername(), e);
+            throw e;
         }
     }
-
-    @Transactional(rollbackFor = {Exception.class})
+    
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(List<Integer> ids) {
-        //1.删除员工基本信息
-        empMapper.deleteByIds(ids);
-        //2.删除员工工作经历信息
-        empExprMapper.deleteByEmpIds(ids);
+        try {
+            int count = empMapper.deleteByIds(ids);
+            log.info("批量删除员工成功: count={}", count);
+            aiAnswerCache.clear();
+        } catch (Exception e) {
+            log.error("批量删除员工失败: count={}", ids.size(), e);
+            throw e;
+        }
     }
-
-
+    
     @Override
     public Emp getInfo(Integer id) {
         return empMapper.getById(id);
     }
-
-    @Transactional(rollbackFor = {Exception.class})
+    
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Emp emp) {
-        //1.根据id修改员工基本信息
-        emp.setUpdateTime(LocalDateTime.now());
-        empMapper.updateById(emp);
-        //2.先删除在添加工作经历
-        empExprMapper.deleteByEmpIds(Arrays.asList(emp.getId()));
-        List<EmpExpr> exprList = emp.getExprList();
-        if (!CollectionUtils.isEmpty(exprList)){
-            exprList.forEach(empExpr -> empExpr.setEmpId(emp.getId()));
-            empExprMapper.insertBatch(exprList);
+        try {
+            emp.setUpdateTime(LocalDateTime.now());
+            empMapper.updateById(emp);
+            log.info("修改员工成功: id={}, username={}", emp.getId(), emp.getUsername());
+            aiAnswerCache.clear();
+        } catch (Exception e) {
+            log.error("修改员工失败: id={}", emp.getId(), e);
+            throw e;
         }
+    }
+    
+    @Override
+    public List<Emp> findAll() {
+        return empMapper.findAll();
     }
 
     @Override
-    public LoginInfo login(Emp emp) {
-        //调用mapper接口，根据用户名密码查询员工信息
-        Emp e = empMapper.selectByUsernameAndPassword(emp);
-        //判断是否存在这个员工，组装登录成功信息
-        if (e != null){
-            log.info("登录成功,员工信息:{}",e);
-            //生成jwt令牌
-            Map<String, Object> claims = new HashMap<>();
-            claims.put("id",e.getId());
-            claims.put("username",e.getUsername());
-            String jwt = JwtUtils.generateToken(claims);
-
-            return new LoginInfo(e.getId(),e.getUsername(),e.getName(),jwt);
+    public void updatePassword(Integer id, String oldPassword, String newPassword) {
+        Emp emp = empMapper.getById(id);
+        if (emp == null) {
+            throw new RuntimeException("\u7528\u6237\u4e0d\u5b58\u5728");
         }
-        //不存在返回null
-        return null;
+        if (!emp.getPassword().equals(oldPassword)) {
+            throw new RuntimeException("\u65e7\u5bc6\u7801\u9519\u8bef");
+        }
+        empMapper.updatePassword(id, newPassword);
+        log.info("\u4fee\u6539\u5bc6\u7801\u6210\u529f: id={}", id);
     }
 }

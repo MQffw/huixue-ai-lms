@@ -1,42 +1,66 @@
 package com.itheima.service.impl;
 
+import com.itheima.ai.cache.AiAnswerCache;
 import com.itheima.mapper.ClazzMapper;
+import com.itheima.mapper.CourseScheduleMapper;
 import com.itheima.pojo.Clazz;
 import com.itheima.pojo.ClazzQueryParam;
 import com.itheima.pojo.PageResult;
 import com.itheima.service.ClazzService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class ClazzServiceImpl implements ClazzService {
 
     @Autowired
     private ClazzMapper clazzMapper;
+    @Autowired
+    private CourseScheduleMapper courseScheduleMapper;
+    @Autowired
+    private AiAnswerCache aiAnswerCache;
 
     @Override
     public PageResult<Clazz> page(ClazzQueryParam param) {
-        //1. 查询总记录数
         Long total = clazzMapper.count(param);
-        //2. 计算分页起始位置 start
-        Integer start = (param.getPage() - 1) * param.getPageSize();
-        param.setStart(start);
-        //3. 查询当前页数据列表
         List<Clazz> rows = clazzMapper.pageList(param);
-        //4. 封装分页结果返回
         return new PageResult<>(total, rows);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteById(Integer id) {
+        courseScheduleMapper.deleteByClazzId(id);  // 级联删除排课记录
         clazzMapper.deleteById(id);
+        aiAnswerCache.clear();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteByIds(List<Integer> ids) {
+        try {
+            for (Integer id : ids) {
+                courseScheduleMapper.deleteByClazzId(id);  // 级联删除排课
+            }
+            clazzMapper.deleteByIds(ids);
+            log.info("批量删除班级成功: count={}", ids.size());
+            aiAnswerCache.clear();
+        } catch (Exception e) {
+            log.error("批量删除班级失败: count={}", ids.size(), e);
+            throw e;
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void add(Clazz clazz) {
         clazzMapper.insert(clazz);
+        aiAnswerCache.clear();
     }
 
     @Override
@@ -45,8 +69,10 @@ public class ClazzServiceImpl implements ClazzService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Clazz clazz) {
         clazzMapper.updateById(clazz);
+        aiAnswerCache.clear();
     }
 
     @Override

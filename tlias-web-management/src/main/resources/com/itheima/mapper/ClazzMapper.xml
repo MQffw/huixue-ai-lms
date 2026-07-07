@@ -54,6 +54,14 @@
         delete from clazz where id = #{id}
     </delete>
 
+    <!-- 批量删除 -->
+    <delete id="deleteByIds">
+        DELETE FROM clazz WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
     <!-- 新增班级 -->
     <insert id="insert" parameterType="com.itheima.pojo.Clazz">
         insert into clazz (name, room, begin_date, end_date, master_id, subject, create_time, update_time)

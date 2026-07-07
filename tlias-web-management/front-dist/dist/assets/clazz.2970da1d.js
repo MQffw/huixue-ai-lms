@@ -1,0 +1,1 @@
+import{n as s}from"./index.1cac62d0.js";const p=(e,a,t,c,z)=>s.get(`/clazzs?begin=${e}&end=${a}&name=${t}&page=${c}&pageSize=${z}`),n=e=>s.post("/clazzs",e),o=e=>s.get(`/clazzs/${e}`),i=e=>s.put("/clazzs",e),d=e=>s.delete(`/clazzs/${e}`),A=e=>s.delete(`/clazzs/batch/${e}`),$=()=>s.get("/clazzs/list");export{o as a,n as b,d as c,A as d,$ as e,p as q,i as u};

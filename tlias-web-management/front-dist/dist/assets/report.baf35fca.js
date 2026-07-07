@@ -1,0 +1,1 @@
+import{n as t}from"./index.1cac62d0.js";const a=()=>t.get("/report/empJobData"),r=()=>t.get("/report/empGenderData"),o=()=>t.get("/report/studentCountData"),p=()=>t.get("/report/studentDegreeData");export{r as a,o as b,p as c,a as q};

@@ -14,6 +14,8 @@ public interface ClazzMapper {
 
     void deleteById(Integer id);
 
+    void deleteByIds(@org.apache.ibatis.annotations.Param("ids") List<Integer> ids);
+
     void insert(Clazz clazz);
 
     Clazz getById(Integer id);

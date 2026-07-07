@@ -12,6 +12,8 @@ public interface ClazzService {
 
     void deleteById(Integer id);
 
+    void deleteByIds(List<Integer> ids);
+
     void add(Clazz clazz);
 
     Clazz getById(Integer id);

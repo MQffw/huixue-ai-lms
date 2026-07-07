@@ -16,6 +16,10 @@ public interface DeptService {
      */
     void deleteById(Integer id);
     /**
+     * 批量删除部门
+     */
+    void deleteByIds(List<Integer> ids);
+    /**
      * 新增部门
      * @return
      */

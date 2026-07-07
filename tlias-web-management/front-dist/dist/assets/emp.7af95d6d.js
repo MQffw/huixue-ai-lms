@@ -1,0 +1,1 @@
+import{n as s}from"./index.1cac62d0.js";const o=(e,p,t,a,m,n)=>s.get(`/emps?name=${e}&gender=${p}&begin=${t}&end=${a}&page=${m}&pageSize=${n}`),d=e=>s.post("/emps",e),g=e=>s.get(`/emps/${e}`),r=e=>s.put("/emps",e),$=e=>s.delete(`/emps?ids=${e}`),c=()=>s.get("/emps/list");export{o as a,g as b,d as c,$ as d,c as q,r as u};

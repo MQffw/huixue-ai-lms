@@ -18,4 +18,6 @@ public interface StudentService {
     void update(Student student);
 
     void updateViolation(Integer id, Integer score);
+
+    List<Student> listAll();
 }

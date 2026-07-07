@@ -16,8 +16,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 安全的 SQL 执行器
- * 使用预编译查询防止 SQL 注入
+ * 安全的 SQL 执行器（旧模式遗留 - NLP转SQL方案）
+ * 当前系统已切换为 Spring AI Agent + Tool 模式，此类不再被主流程调用
+ * 保留作为备用，如需恢复 SQL 生成模式可重新启用
  */
 @Slf4j
 @Component

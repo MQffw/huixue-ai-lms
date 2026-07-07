@@ -1,13 +1,19 @@
 package com.itheima.pojo;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import java.time.LocalDate;
 
+/**
+ * 学员查询参数
+ */
 @Data
-public class StudentQueryParam {
-    private Integer page = 1;
-    private Integer pageSize = 10;
-    private String name;        // 学员姓名
-    private Integer degree;     // 学历
-    private Integer clazzId;    // 班级ID
-    private Integer start;      // 分页起始位置
+@EqualsAndHashCode(callSuper = true)
+public class StudentQueryParam extends PageQueryParam {
+
+    private String name;
+    private LocalDate beginDate;
+    private LocalDate endDate;
+    private Integer clazzId;
+    private Integer degree;
 }

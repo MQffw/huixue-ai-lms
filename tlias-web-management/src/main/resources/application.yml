@@ -3,32 +3,122 @@ spring:
     name: tlias-web-management
   # 数据库连接信息
   datasource:
-    driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/tlias
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tlias?useSSL=false&serverTimezone=UTC&characterEncoding=utf8&allowPublicKeyRetrieval=true
     username: root
-    password: 123456
+    password: ${DB_PASSWORD:123456}  # 开发用默认值，生产必须通过环境变量覆盖
+    # HikariCP 连接池调优
+    hikari:
+      maximum-pool-size: 20          # 最大连接数（默认10，按CPU核心数*2+磁盘数调整）
+      minimum-idle: 5                # 最小空闲连接（避免冷启动延迟）
+      connection-timeout: 10000      # 获取连接超时 10s（默认30s，快速失败）
+      idle-timeout: 300000           # 空闲连接回收 5min（默认10min）
+      max-lifetime: 1800000          # 连接最大存活 30min（默认30min，避免MySQL wait_timeout）
+      pool-name: TliasHikariPool     # 连接池名称（便于监控识别）
+      auto-commit: true              # 自动提交
+      validation-timeout: 3000       # 连接校验超时 3s
   servlet:
     multipart:
       #最大单个文件大小
       max-file-size: 10MB
       #最大请求大小
       max-request-size: 100MB
+  # Spring AI OpenAI 配置（默认使用 longcat，兼容 DeepSeek/Mimo 等 OpenAI 协议 API）
+  ai:
+    openai:
+      api-key: ${longcat-api}
+      base-url: https://api.longcat.chat/openai
+      chat:
+        options:
+          model: LongCat-2.0
+          temperature: 0.3
+  # Redis 配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 5000
 
 # MyBatis 相关配置
 mybatis:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true #驼峰命名映射开关
+  mapper-locations: classpath:com/itheima/mapper/*.xml
 
 #配置事务管理日志级别
 logging:
   level:
     org.springframework.jdbc.support.JdbcTransactionManager: debug
 
-# AI 智能助手配置
+# AI 智能助手配置（自定义多模型配置，供 Agent 工厂使用）
 ai:
-  api-key: ${longcat-api}
-  api-url: https://api.longcat.chat/openai/v1/chat/completions
-  model: LongCat-2.0-Preview
-  max-tokens: 500
+  models:
+    deepseek:
+      api-key: ${deepseek-api}
+      api-url: https://api.deepseek.com/v1/chat/completions
+      model: deepseek-v4-pro
+    mimo:
+      api-key: ${mimo-api}
+      api-url: https://api.xiaomimimo.com/v1/chat/completions
+      model: mimo-v2.5-pro
+    longcat:
+      api-key: ${longcat-api}
+      api-url: https://api.longcat.chat/openai/v1/chat/completions
+      model: LongCat-2.0
+  max-tokens: 1024          # 默认 maxTokens（闲聊/问答场景）
+  max-tokens-chat: 1024     # 对话场景专用（高于 500 以留空间）
+  max-tokens-tool: 2048     # 工具调用场景（需额外空间返回工具结果）
   temperature: 0.3
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:ZXhhbXBsZS1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudC1vbmx5LTIwMjY=}  # 开发用默认值，生产必须通过环境变量覆盖
+  expiration: 43200000  # 12小时（毫秒）
+  renewal-threshold: 1800000  # 30分钟（毫秒）
+
+# 限流配置
+rate-limiter:
+  normal: 100.0  # 普通接口每秒请求数
+  ai: 10.0       # AI接口每秒请求数
+
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# Actuator 健康监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,loggers  # 暴露的端点
+  endpoint:
+    health:
+      show-details: always          # 显示详细健康信息（DB、磁盘、AI服务等）
+    loggers:
+      enabled: true                 # 允许动态调整日志级别
+  health:
+    ai:
+      enabled: false                # 禁用 AI 健康检查（避免启动时连接外部 API 报错）
+
+# SpringDoc OpenAPI 接口文档配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'AI智能助手'
+      paths-to-match: /ai/**
+      packages-to-scan: com.itheima.controller
+    - group: '业务管理'
+      paths-to-match: /depts/**,/emps/**,/students/**,/clazzs/**,/report/**
+      packages-to-scan: com.itheima.controller
+    - group: '知识库管理'
+      paths-to-match: /knowledge/**
+      packages-to-scan: com.itheima.controller

@@ -1,12 +1,23 @@
 <script setup>
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { User, ChatDotRound, Promotion, Plus } from '@element-plus/icons-vue'
+import ModelManageDialog from './ModelManageDialog.vue'
 
 const messages = ref([])
 const inputMessage = ref('')
 const loading = ref(false)
 const messagesContainer = ref(null)
 const selectedModel = ref('longcat')
+const modelManageVisible = ref(false)
+const lastModel = ref('longcat')
+const onModelSelect = (v) => {
+  if (v === '__manage__') {
+    selectedModel.value = lastModel.value
+    modelManageVisible.value = true
+  } else {
+    lastModel.value = v
+  }
+}
 
 const scrollProgress = ref(0)
 let targetProgress = 0
@@ -57,12 +68,37 @@ const getOrCreateSessionId = () => {
 }
 const sessionId = ref(getOrCreateSessionId())
 
-// 模型列表
-const modelOptions = [
+// 模型列表：优先从后端注册表动态加载，失败时回退到默认列表
+const modelOptions = ref([
   { value: 'deepseek', label: 'DeepSeek V4 Pro' },
   { value: 'mimo', label: 'Mimo V2.5 Pro' },
   { value: 'longcat', label: 'LongCat 2.0' }
-]
+])
+
+const loadModels = async () => {
+  try {
+    const loginUser = JSON.parse(localStorage.getItem('loginUser'))
+    const res = await fetch('/api/ai/models', {
+      headers: { 'token': loginUser?.token || '' }
+    })
+    const data = await res.json()
+    if (data && data.code === 1 && Array.isArray(data.data) && data.data.length > 0) {
+      const list = data.data
+        .filter(m => m.enabled !== false)
+        .map(m => ({ value: m.type, label: m.name || m.type }))
+      if (list.length > 0) {
+        modelOptions.value = list
+        if (!list.some(m => m.value === selectedModel.value)) {
+          selectedModel.value = list[0].value
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('模型列表加载失败，使用默认列表', e)
+  }
+}
+
+onMounted(loadModels)
 
 // 快捷问题列表
 const quickQuestions = [
@@ -304,9 +340,11 @@ const scrollToBottom = () => {
     <!-- 输入区域 -->
     <div class="chat-input">
       <el-button :icon="Plus" circle @click="clearChat" :disabled="loading" title="开启新对话" class="new-chat-btn" />
-      <el-select v-model="selectedModel" class="model-select" :disabled="loading">
+      <el-select v-model="selectedModel" class="model-select" :disabled="loading" @change="onModelSelect">
         <el-option v-for="m in modelOptions" :key="m.value" :label="m.label" :value="m.value" />
+        <el-option label="⚙ AI 模型配置" value="__manage__" />
       </el-select>
+      <ModelManageDialog v-model="modelManageVisible" @changed="loadModels" />
       <el-input v-model="inputMessage"
                 :placeholder="loading ? 'AI 正在思考中，请稍候...' : '输入你的问题，按回车发送...'"
                 @keydown.enter="sendMessage"

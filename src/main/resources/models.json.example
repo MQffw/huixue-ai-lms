@@ -1,0 +1,34 @@
+{
+  "models": [
+    {
+      "type": "deepseek",
+      "name": "DeepSeek V4 Pro",
+      "baseUrl": "https://api.deepseek.com",
+      "apiKey": "",
+      "model": "deepseek-v4-pro",
+      "temperature": 0.3,
+      "maxTokens": 1024,
+      "enabled": true
+    },
+    {
+      "type": "mimo",
+      "name": "Mimo V2.5 Pro",
+      "baseUrl": "https://api.xiaomimimo.com",
+      "apiKey": "",
+      "model": "mimo-v2.5-pro",
+      "temperature": 0.3,
+      "maxTokens": 1024,
+      "enabled": true
+    },
+    {
+      "type": "longcat",
+      "name": "LongCat 2.0",
+      "baseUrl": "https://api.longcat.chat/openai",
+      "apiKey": "",
+      "model": "LongCat-2.0",
+      "temperature": 0.3,
+      "maxTokens": 1024,
+      "enabled": true
+    }
+  ]
+}

@@ -61,6 +61,7 @@ public class AiOrchestratorService {
     @Autowired private CourseTools courseTools;
     @Autowired private AffairsTools affairsTools;
     @Autowired private NoticeTools noticeTools;
+    @Autowired private SqlQueryTools sqlQueryTools;
 
     /** 模型降级映射 */
     private static final Map<String, String> FALLBACK_MODEL = Map.of(
@@ -78,20 +79,8 @@ public class AiOrchestratorService {
     //  对外入口
     // ════════════════════════════════════════════
 
-    /**
-     * 流式对话入口 — 返回真 Spring AI Flux（SSE 级流式）
-     *
-     * @param message   用户问题
-     * @param userId    当前登录用户 ID
-     * @param sessionId 会话 ID（来自前端 UUID）
-     * @param modelType 模型 deepseek/mimo/longcat
-     */
-    /**
-     * 流式对话入口 — 混合流式
-     *
-     * 无工具意图（GREETING/TEXT_GEN/KNOWLEDGE_RAG）：token 级真流式，SSE 逐块推送；
-     * 工具意图（DATA_STATS/DATA_QUERY/CHAT）：先同步执行工具调用（工具结果必须完整才能生成答案），再分块推送最终答案。
-     */
+
+
     /**
      * 流式对话入口 — 混合流式
      *
@@ -106,14 +95,8 @@ public class AiOrchestratorService {
             return Flux.just("[安全提醒] 输入包含不安全的指令，已被安全拦截。");
         }
 
-        // 2. Cache Aside 命中直接返回（缓存键含 userId，防止跨用户串号）
+        // 2. 会话标识
         String effectiveSessionId = sessionId != null ? sessionId : "default";
-        String cacheKey = userId != null ? userId + ":" + message : message;
-        String cached = aiAnswerCache.get(cacheKey, null);
-        if (cached != null) {
-            log.info("AI缓存命中直接返回: userId={}, question={}", userId, message);
-            return toSimulatedStream(cached);
-        }
 
         // 3. 意图路由
         Intent intent = intentRouter.route(message);
@@ -138,10 +121,21 @@ public class AiOrchestratorService {
         // 7. 选工具（按 Intent 选对应的 Tool Bean；无工具意图返回空数组）
         Object[] tools = resolveTools(intent);
 
+        // 7.1 缓存：仅无工具意图可缓存，key 含会话+上下文指纹，防止串答案
+        boolean cacheable = tools.length == 0;
+        String cacheKey = cacheable ? buildCacheKey(userId, effectiveSessionId, history, message) : null;
+        if (cacheKey != null) {
+            String cached = aiAnswerCache.get(cacheKey);
+            if (cached != null) {
+                log.info("AI缓存命中: userId={}, question={}", userId, message);
+                return toSimulatedStream(cached);
+            }
+        }
+
         // 8. 无工具意图 → token 级真流式
         if (tools.length == 0) {
             return streamAnswer(message, userId, effectiveSessionId, systemPrompt, userMessage,
-                    modelType, intent, summary);
+                    modelType, intent, summary, cacheKey);
         }
 
         // 9. 工具意图 → 同步执行工具（Spring AI 自动完成 tool_use 循环），再分块推送最终答案
@@ -168,7 +162,7 @@ public class AiOrchestratorService {
             // 持久化 + 缓存
             if (!finalAnswer.isEmpty()) {
                 asyncPersist(userId, effectiveSessionId, message, finalAnswer,
-                        systemPrompt, modelType, summary, intent);
+                        systemPrompt, modelType, summary, intent, cacheKey);
             }
             log.info("Orchestrator完成(工具意图): userId={}, intent={}, answerLen={}",
                     userId, intent, finalAnswer.length());
@@ -191,7 +185,7 @@ public class AiOrchestratorService {
      */
     private Flux<String> streamAnswer(String message, Integer userId, String sessionId,
                                       String systemPrompt, String userMessage, String modelType,
-                                      Intent intent, String summary) {
+                                      Intent intent, String summary, String cacheKey) {
         try {
             ChatClient client = getChatClientWithFallback(modelType);
             StringBuilder collected = new StringBuilder();
@@ -208,7 +202,7 @@ public class AiOrchestratorService {
                     String full = collected.toString();
                     if (!full.isEmpty()) {
                         asyncPersist(userId, sessionId, message, full,
-                                systemPrompt, modelType, summary, intent);
+                                systemPrompt, modelType, summary, intent, cacheKey);
                     }
                     log.info("Orchestrator流式完成: userId={}, intent={}, answerLen={}",
                             userId, intent, full.length());
@@ -232,17 +226,23 @@ public class AiOrchestratorService {
         // 安全拦截
         safeGuard.check(message);
 
-        // 意图路由 + 缓存（键含 userId，防止跨用户串号）
+        // 意图路由
         Intent intent = intentRouter.route(message);
-        String chatCacheKey = userId != null ? userId + ":" + message : message;
-        String cached = aiAnswerCache.get(chatCacheKey, null);
-        if (cached != null) return cached;
 
         // 知识库检索
         String kbContext = (intent == Intent.KNOWLEDGE_RAG) ? questionAnswer.retrieveContext(message) : "";
         String systemPrompt = promptBuilder.build(intent, kbContext, null);
 
         Object[] tools = resolveTools(intent);
+        // 仅无工具意图可缓存（key 含会话+上下文指纹）
+        String chatCacheKey = tools.length == 0
+                ? buildCacheKey(userId, sessionId != null ? sessionId : "default",
+                        history != null ? history : List.of(), message)
+                : null;
+        if (chatCacheKey != null) {
+            String cached = aiAnswerCache.get(chatCacheKey);
+            if (cached != null) return cached;
+        }
         ChatClient client = getChatClientWithFallback(modelType);
 
         org.springframework.ai.chat.model.ChatResponse chatResponse = client.prompt()
@@ -261,7 +261,7 @@ public class AiOrchestratorService {
         // 持久化 + 缓存
         if (!answer.isEmpty()) {
             asyncPersist(userId, sessionId != null ? sessionId : "default", message, answer,
-                    systemPrompt, modelType, null, intent);
+                    systemPrompt, modelType, null, intent, chatCacheKey);
         }
 
         return answer;
@@ -284,12 +284,12 @@ public class AiOrchestratorService {
      */
     private Object[] resolveTools(Intent intent) {
         return switch (intent) {
-            case DATA_STATS -> new Object[]{ studentTools, employeeTools };
-            case DATA_QUERY -> new Object[]{ studentTools, employeeTools, clazzTools, courseTools, affairsTools };
+            case DATA_STATS -> new Object[]{ studentTools, employeeTools, sqlQueryTools };
+            case DATA_QUERY -> new Object[]{ studentTools, employeeTools, clazzTools, courseTools, affairsTools, sqlQueryTools };
             case KNOWLEDGE_RAG -> new Object[]{}; // RAG 上下文已注入 system prompt，无需工具，可走 token 级流式
             case TEXT_GEN -> new Object[]{};
             case GREETING -> new Object[]{};
-            case CHAT -> new Object[]{ studentTools, employeeTools, clazzTools, courseTools, affairsTools, noticeTools };
+            case CHAT -> new Object[]{ studentTools, employeeTools, clazzTools, courseTools, affairsTools, noticeTools, sqlQueryTools };
         };
     }
 
@@ -307,6 +307,24 @@ public class AiOrchestratorService {
     }
 
     /**
+     * 上下文感知缓存 key：userId + sessionId + 最近4条消息指纹 + 问题
+     * 同一问题在不同上下文/会话中互不污染；数据类意图不调用本方法
+     */
+    private String buildCacheKey(Integer userId, String sessionId,
+                                 List<Map<String, String>> history, String message) {
+        StringBuilder ctx = new StringBuilder();
+        int from = Math.max(0, history.size() - 4);
+        for (int i = from; i < history.size(); i++) {
+            Map<String, String> m = history.get(i);
+            if (m != null) {
+                ctx.append(m.get("role")).append('=').append(m.get("content")).append('|');
+            }
+        }
+        ctx.append("|sid=").append(sessionId == null ? "" : sessionId);
+        String prefix = userId != null ? userId + ":" : "";
+        return prefix + Integer.toHexString(ctx.toString().hashCode()) + ":" + message.trim().toLowerCase();
+    }
+    /**
      * 构造用户消息：只附带最近 2 轮历史用于消歧，全量历史通过 SummaryMemory 注入
      */
     private String buildUserMessage(String currentQuestion, List<Map<String, String>> history) {
@@ -317,11 +335,16 @@ public class AiOrchestratorService {
         int fromIndex = Math.max(0, history.size() - 4);
         for (int i = fromIndex; i < history.size(); i++) {
             var msg = history.get(i);
-            if ("user".equals(msg.get("role"))) {
-                sb.append("用户: ").append(msg.get("content")).append("\n");
+            String role = String.valueOf(msg.get("role"));
+            String content = String.valueOf(msg.get("content"));
+            if ("user".equals(role)) {
+                sb.append("用户: ").append(content).append("\n");
+            } else if ("assistant".equals(role)) {
+                sb.append("助手: ").append(content).append("\n");
             }
         }
-        sb.append("\n当前问题: ").append(currentQuestion);
+        sb.append("\n注意：请结合上面的历史对话理解当前问题的指代（如\"男的\"可能指上一问中的男学员），但只回答当前问题本身，不要重复回答历史问题。\n");
+        sb.append("当前问题: ").append(currentQuestion);
         return sb.toString();
     }
 
@@ -360,7 +383,7 @@ public class AiOrchestratorService {
 
     private void asyncPersist(Integer userId, String sessionId, String message,
                               String answer, String systemPrompt, String modelType,
-                              String summary, Intent intent) {
+                              String summary, Intent intent, String cacheKey) {
         try {
             if (answer == null || answer.isEmpty()) return;
             // 避免把占位符和错误兜底消息写入缓存
@@ -368,9 +391,10 @@ public class AiOrchestratorService {
             if (answer.contains("模型未返回有效响应") || answer.contains("请稍后重试")) return;
             if (answer.contains("[[TOOL]]") || answer.contains("[[END_TOOL]]")) return;
 
-            // 缓存（键含 userId，防止跨用户串号）
-            String cacheKey = userId != null ? userId + ":" + message : message;
-            aiAnswerCache.put(cacheKey, answer, null);
+            // 缓存（仅无工具意图，key 含会话+上下文指纹）
+            if (cacheKey != null) {
+                aiAnswerCache.put(cacheKey, answer);
+            }
 
             // Redis 历史（只用 historyManager，移除 semanticChatMemory 双写）
             if (userId != null && sessionId != null && !sessionId.isEmpty()) {

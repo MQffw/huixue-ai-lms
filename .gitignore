@@ -40,3 +40,6 @@ node_modules/
 frontend/dist/
 frontend/.env.local
 .claude/
+
+# 模型注册表运行时配置（含密钥，不提交）
+**/config/models.json

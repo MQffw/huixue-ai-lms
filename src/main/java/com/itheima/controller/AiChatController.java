@@ -154,7 +154,7 @@ public class AiChatController {
     public Result clearCache() {
         Integer userId = CurrentHolder.getId();
         log.info("清除AI缓存: userId={}", userId);
-        aiAnswerCache.clear();
+        aiAnswerCache.clearByUser(String.valueOf(CurrentHolder.getId()));
         return Result.success();
     }
 

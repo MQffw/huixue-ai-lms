@@ -39,3 +39,4 @@ node_modules/
 # Frontend (Vue source)
 frontend/dist/
 frontend/.env.local
+.claude/

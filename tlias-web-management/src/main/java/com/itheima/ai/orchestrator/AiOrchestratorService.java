@@ -30,10 +30,10 @@ import java.util.*;
  * 处理链路（一次请求只走其中一条）：
  *   Guard → MemoryLoad → IntentRouter → ToolOrChatOrRAG → AnswerFormat → Trace → Cache → SSE
  *
- * 工具调用方式：Spring AI 原生 ChatClient.prompt().tools(ToolBean).stream()
- *   - 模型输出 tool_use 时自动调用对应 Bean 的方法
- *   - 工具结果自动回传给模型，无需手写 [[TOOL]] 反射
- *   - 真流式：Flux<ChatResponse> → emit 每个 chunk
+ * 流式策略（混合模式）：
+ *   - 无工具意图（寒暄/文本生成/知识库RAG）：token 级真流式，SSE 逐块推送
+ *   - 工具意图（数据查询/统计/通用对话）：先同步执行工具，再分块推送最终答案
+ *     （工具结果必须完整返回后才能生成答案，这是业界标准做法）
  */
 @Slf4j
 @Service
@@ -86,6 +86,18 @@ public class AiOrchestratorService {
      * @param sessionId 会话 ID（来自前端 UUID）
      * @param modelType 模型 deepseek/mimo/longcat
      */
+    /**
+     * 流式对话入口 — 混合流式
+     *
+     * 无工具意图（GREETING/TEXT_GEN/KNOWLEDGE_RAG）：token 级真流式，SSE 逐块推送；
+     * 工具意图（DATA_STATS/DATA_QUERY/CHAT）：先同步执行工具调用（工具结果必须完整才能生成答案），再分块推送最终答案。
+     */
+    /**
+     * 流式对话入口 — 混合流式
+     *
+     * 无工具意图（GREETING/TEXT_GEN/KNOWLEDGE_RAG）：token 级真流式，SSE 逐块推送；
+     * 工具意图（DATA_STATS/DATA_QUERY/CHAT）：先同步执行工具调用（工具结果必须完整才能生成答案），再分块推送最终答案。
+     */
     public Flux<String> stream(String message, Integer userId, String sessionId, String modelType) {
         // 1. 安全拦截（抛异常由 Controller 捕获）
         try {
@@ -123,14 +135,19 @@ public class AiOrchestratorService {
         // 6.1 构造带上下文的用户消息（修复：history 加载后从未传入模型）
         String userMessage = buildUserMessage(message, history);
 
-        // 7. 选工具（按 Intent 选对应的 Tool Bean）
+        // 7. 选工具（按 Intent 选对应的 Tool Bean；无工具意图返回空数组）
         Object[] tools = resolveTools(intent);
 
-        // 8. 调模型（带降级）— Spring AI Function Calling：自动执行工具 + 流式输出最终答案
+        // 8. 无工具意图 → token 级真流式
+        if (tools.length == 0) {
+            return streamAnswer(message, userId, effectiveSessionId, systemPrompt, userMessage,
+                    modelType, intent, summary);
+        }
+
+        // 9. 工具意图 → 同步执行工具（Spring AI 自动完成 tool_use 循环），再分块推送最终答案
         try {
             ChatClient client = getChatClientWithFallback(modelType);
 
-            // .tools(tools) 在 .call().chatResponse() 模式会自动执行工具调用
             // LongCat 已验证支持 Function Calling（返回 finish_reason:"tool_calls"）
             org.springframework.ai.chat.model.ChatResponse chatResponse = client.prompt()
                 .system(systemPrompt)
@@ -153,17 +170,59 @@ public class AiOrchestratorService {
                 asyncPersist(userId, effectiveSessionId, message, finalAnswer,
                         systemPrompt, modelType, summary, intent);
             }
-            log.info("Orchestrator完成: userId={}, intent={}, answerLen={}",
+            log.info("Orchestrator完成(工具意图): userId={}, intent={}, answerLen={}",
                     userId, intent, finalAnswer.length());
 
-            // 流式输出最终答案
+            // 工具调用结果整包返回后，按句切块推送（保持 SSE 打字机体验）
             return toSimulatedStream(finalAnswer);
 
         } catch (Exception e) {
-            log.error("Orchestrator 初始化失败: {}", e.getMessage(), e);
+            log.error("Orchestrator 工具调用失败: {}", e.getMessage(), e);
             return toSimulatedStream(FALLBACK_MESSAGES[0]);
         }
     }
+
+    /**
+     * token 级真流式（无工具意图）
+     *
+     * 直接订阅模型的 Flux<String> 输出流，每个 chunk 实时推送；
+     * 同时后台累积完整答案，流结束后异步持久化 + 写缓存。
+     * 注：数据脱敏在 chunk 级别执行，跨 chunk 的连续敏感串可能漏脱敏（可接受的演示取舍）。
+     */
+    private Flux<String> streamAnswer(String message, Integer userId, String sessionId,
+                                      String systemPrompt, String userMessage, String modelType,
+                                      Intent intent, String summary) {
+        try {
+            ChatClient client = getChatClientWithFallback(modelType);
+            StringBuilder collected = new StringBuilder();
+            return client.prompt()
+                .system(systemPrompt)
+                .user(userMessage)
+                .stream()
+                .content()
+                .map(chunk -> maskSensitiveData(chunk != null ? chunk : ""))
+                .doOnNext(chunk -> {
+                    if (chunk != null) collected.append(chunk);
+                })
+                .doOnComplete(() -> {
+                    String full = collected.toString();
+                    if (!full.isEmpty()) {
+                        asyncPersist(userId, sessionId, message, full,
+                                systemPrompt, modelType, summary, intent);
+                    }
+                    log.info("Orchestrator流式完成: userId={}, intent={}, answerLen={}",
+                            userId, intent, full.length());
+                })
+                .onErrorResume(e -> {
+                    log.error("AI 流式响应异常: {}", e.getMessage(), e);
+                    return Flux.just(FALLBACK_MESSAGES[0]);
+                });
+        } catch (Exception e) {
+            log.error("AI 流式初始化失败: {}", e.getMessage(), e);
+            return Flux.just(FALLBACK_MESSAGES[0]);
+        }
+    }
+
 
     /**
      * 同步对话入口（测试用）
@@ -227,7 +286,7 @@ public class AiOrchestratorService {
         return switch (intent) {
             case DATA_STATS -> new Object[]{ studentTools, employeeTools };
             case DATA_QUERY -> new Object[]{ studentTools, employeeTools, clazzTools, courseTools, affairsTools };
-            case KNOWLEDGE_RAG -> new Object[]{ noticeTools };
+            case KNOWLEDGE_RAG -> new Object[]{}; // RAG 上下文已注入 system prompt，无需工具，可走 token 级流式
             case TEXT_GEN -> new Object[]{};
             case GREETING -> new Object[]{};
             case CHAT -> new Object[]{ studentTools, employeeTools, clazzTools, courseTools, affairsTools, noticeTools };

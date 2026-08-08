@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * AI 聊天控制器（Phase 3 Orchestrator 版）
  * - 直接注入 AiOrchestratorService
- * - 真流式：Flux<String> → SSE（不再字符级 sleep 假流式）
+ * - 混合流式：无工具意图 token 级流式；工具意图先执行工具再分块推送（SSE）
  * - 统一异常处理
  */
 @Tag(name = "AI智能助手", description = "AI对话接口，支持多模型切换、原生Flux流式输出、Intent路由、Agent工具调用")
@@ -62,11 +62,11 @@ public class AiChatController {
     }
 
     /**
-     * 原生流式聊天（Phase 3 Orchestrator 版）
-     * - Spring AI 原生 Flux<String> 流，每个词/短语级推送
+     * 流式聊天（Phase 4 混合流式版）
+     * - 无工具意图：Spring AI 原生 Flux<String> token 级流；工具意图：工具执行后分块推送
      * - 错误处理：SSE 兼容格式
      */
-    @Operation(summary = "AI流式对话（SSE）", description = "支持DeepSeek/Mimo/LongCat三模型切换，原生流式输出，Intent路由+工具调用")
+    @Operation(summary = "AI流式对话（SSE）", description = "支持DeepSeek/Mimo/LongCat三模型切换，流式输出，Intent路由+工具调用")
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chat(@RequestBody AiChatRequest request) {
         validateRequest(request);

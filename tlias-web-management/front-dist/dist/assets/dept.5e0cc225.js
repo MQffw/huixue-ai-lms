@@ -1,1 +1,0 @@
-import{n as t}from"./index.1cac62d0.js";const s=()=>t.get("/depts"),d=e=>t.post("/depts",e),a=e=>t.get(`/depts/${e}`),o=e=>t.put("/depts",e),c=e=>t.delete(`/depts?id=${e}`),i=e=>t.delete(`/depts/${e}`);export{a,c as b,d as c,i as d,s as q,o as u};

@@ -35,3 +35,7 @@ node_modules/
 *.swp
 *.swo
 *~
+
+# Frontend (Vue source)
+frontend/dist/
+frontend/.env.local

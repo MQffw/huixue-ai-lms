@@ -1,5 +1,7 @@
 # 本地 Docker 开发环境（MySQL 8 + Redis 7）
 
+> **状态**：现行（日常开发以本文为准） · **最后核对**：2026-11-13 · 文档索引导航见 [docs/README.md](../README.md)
+
 > 目标：不用再手动起 MySQL、Redis 也不会在项目停止后残留。
 > 只把**中间件**放 Docker，Spring Boot 仍在 IDE 里跑，改代码热重载不受影响。
 
@@ -151,7 +153,7 @@ redis: localhost:6379, db0, 无密码
 | `docker-compose.local.yml` | 覆盖层：复用本机 jar | 配合上面的 docker-compose.yml 用 |
 | `docker-compose.host.yml` | 复用宿主机中间件 | 只起 app |
 
-## 6.1 全栈部署（已实测通过）
+## 7. 全栈部署（已实测通过）
 
 ```bash
 # 1) 本机打包（走本地 .m2 + 阿里云镜像，约 40 秒）
@@ -175,9 +177,9 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 | 库初始化 | 26 张表，student 19 行 |
 
 **为什么不直接用 `docker compose build`**：Dockerfile 会在容器里 `mvn package`，要下 1GB+ 依赖，其中 spring-ai 1.0.0-M6 只能从 `repo.spring.io/milestone` 拉，国内网络实测 **23 分钟零进展**（缓存一直停在 1.25GB）。用 `docker-compose.local.yml` 复用本机 jar 可以完全绕过。
-交付到干净机器 / 内网机器时，去掉 `-f docker-compose.local.yml`，走标准多阶段构建；镜像加速已内置（见 6.2）。
+交付到干净机器 / 内网机器时，去掉 `-f docker-compose.local.yml`，走标准多阶段构建；镜像加速已内置（见第 8 节）。
 
-## 6.2 容器内构建加速（走标准 Dockerfile 时）
+## 8. 容器内构建加速（走标准 Dockerfile 时）
 
 仓库里已有 `deploy/maven/settings.xml`（阿里云镜像 + 放行 spring milestone），
 `Dockerfile` 第 14 行 `COPY deploy/maven/settings.xml /root/.m2/settings.xml` 已接上，**无需额外操作**。
@@ -190,7 +192,7 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
   挂父目录会把上面 COPY 进去的 `settings.xml` 整个遮蔽掉，等于镜像配置失效。
 
 
-## 7. 方案 C：全容器热更新（不想在本机装 JDK/Node 时用）
+## 9. 方案 C：全容器热更新（不想在本机装 JDK/Node 时用）
 
 适用场景：换一台干净机器、或者要把「正在跑的环境」直接演示给别人，但又不想每次改代码都重建镜像。
 
@@ -235,7 +237,7 @@ npm 换源：
 docker compose -f docker-compose.debug.yml exec huixuetong-web npm config set registry https://registry.npmmirror.com
 ```
 
-## 8. WSL / Windows 相关的坑
+## 10. WSL / Windows 相关的坑
 
 1. **项目在 `C:\` 上时，容器的 bind mount 走 9p 协议，IO 慢 3-10 倍**。
    日常开发够用；如果 `mvn` / `vite` 明显卡，把项目移进 WSL 内部再跑：
@@ -251,7 +253,7 @@ docker compose -f docker-compose.debug.yml exec huixuetong-web npm config set re
 
 4. **应用已不再启停依赖**（见 3.1）。早期 compose 里注入的 `APP_MYSQL_AUTO_START_ENABLED` / `APP_REDIS_AUTO_START_ENABLED` 已随代码一起清理。
 
-## 9. 临时让别人访问（公网隧道）
+## 11. 临时让别人访问（公网隧道）
 
 不买域名、不用公网 IP、不用在路由器上做端口映射——用 Cloudflare 的临时隧道（quick tunnel）。
 

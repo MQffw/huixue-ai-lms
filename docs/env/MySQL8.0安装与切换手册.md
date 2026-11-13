@@ -1,12 +1,22 @@
 # MySQL 8.0 安装与切换手册（Windows · C 盘 · 与 5.5 并存）
 
+> **状态**：现行（仅"不用 Docker、走本机数据库"时需要） · **最后核对**：2026-11-13 · 文档索引导航见 [docs/README.md](../README.md)
+
 > 目标：5.5 留在 `C:\Program Files\MySQL\MySQL Server 5.5`（3306）不删；
 > 8.0 装到 `C:\Program Files\MySQL\MySQL Server 8.0`（3307），数据放 `C:\ProgramData`；
 > 应用用 Spring profile 切换，随时可回滚。
 >
+> **先确认你要的是哪条路**：
+>
+> | 你的情况 | 该看 |
+> |---|---|
+> | 只是想把项目跑起来（推荐，零安装） | [本地Docker开发环境.md](本地Docker开发环境.md) ← 容器提供 MySQL + Redis |
+> | 机器装不了 Docker，或必须用本机 MySQL | **本文**，从第 0 节开始 |
+> | 已经在用 Docker，想切回本机库 | 本文第 7 节（应用启动 / profile 切换） |
+>
 > 已随仓库提供：
-> - 配置模板：[deploy/mysql80/my.ini](../deploy/mysql80/my.ini)
-> - 应用 profile：[application-mysql8.yml](../src/main/resources/application-mysql8.yml)
+> - 配置模板：[deploy/mysql80/my.ini](../../deploy/mysql80/my.ini)
+> - 应用 profile：[application-mysql8.yml](../../src/main/resources/application-mysql8.yml)
 
 ---
 
@@ -256,7 +266,7 @@ mvn spring-boot:run
 `application-mysql8.yml` 保留为空文件，只为兼容旧命令
 `mvn spring-boot:run "-Dspring-boot.run.profiles=mysql8"`，它不再覆盖任何配置。
 
-Redis 手动启动（自动拉起失败时）：
+Redis 手工启动（走本机依赖时需要；走 Docker 时由 `scripts/dev-up.bat` 提供，不用管这段）：
 
 ```powershell
 D:\Redis-8.8.0-Windows-x64-cygwin\redis-server.exe D:\Redis-8.8.0-Windows-x64-cygwin\redis.conf

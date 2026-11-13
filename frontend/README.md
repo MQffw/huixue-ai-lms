@@ -3,7 +3,7 @@
 慧学通前端：Vue 3 + Vite + Element Plus + Pinia + ECharts。
 
 > 整体启动流程（含数据库、后端）见根目录 [`README.md`](../README.md)；
-> Docker 开发环境与踩坑记录见 [`docs/本地Docker开发环境.md`](../docs/本地Docker开发环境.md)。
+> Docker 开发环境与踩坑记录见 [`docs/env/本地Docker开发环境.md`](../docs/env/本地Docker开发环境.md)。
 
 ## 开发
 

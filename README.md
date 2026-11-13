@@ -12,7 +12,7 @@
 
 **基于 Spring Boot 3.5 + Vue 3 + Spring AI 的现代化培训管理系统 —— 以 AI Agent 为核心的智能教务中台**
 
-[API 文档](docs/API接口文档.md) · [问题反馈](https://github.com/MQffw/huixue-ai-lms/issues)
+[API 文档](docs/api/API接口文档.md) · [问题反馈](https://github.com/MQffw/huixue-ai-lms/issues)
 
 </div>
 
@@ -188,7 +188,7 @@ IDEA 里直接 Run 即可，**不需要任何 `-D` 参数**（应用侧自动启
 
 > **全新克隆需要注意**：该 dump 含真实业务数据，已被 `.gitignore` 排除，仓库里只有 `.gitkeep` 占位。
 > 也就是说干净克隆后 `deploy/mysql-init/` 是空的，`up` 出来是**空库**。
-> 请自备 dump 放进该目录，或改用下面的手工导入，详见 [`docs/本地Docker开发环境.md`](docs/本地Docker开发环境.md)。
+> 请自备 dump 放进该目录，或改用下面的手工导入，详见 [`docs/env/本地Docker开发环境.md`](docs/env/本地Docker开发环境.md)。
 
 **方式 B：本机依赖**
 
@@ -302,7 +302,11 @@ huixue-ai-lms/
 ├── frontend/                         # Vue 3 前端源码
 ├── deploy/                           # 部署资产：nginx 反代、mysql-init、Maven 镜像、MySQL8 模板
 ├── scripts/                          # dev-up / dev-down / tunnel 三个批处理
-├── docs/                             # 工程文档（docs/ai/ 为 AI 方案）
+├── docs/                             # 工程文档，索引见 docs/README.md
+│   ├── api/                          # API 接口文档 + Apifox 自动化测试接入
+│   ├── env/                          # Docker 开发环境、MySQL 8 安装与切换
+│   ├── analysis/                     # 系统实测痛难点与完善方案
+│   └── ai/                           # AI 目标形态与动工顺序（archive/ 为历史稿）
 ├── docker-compose.{yml,dev,debug,host,local}.yml
 ├── Dockerfile / Dockerfile.runtime / Dockerfile.web
 ├── config/models.json                # 模型注册表（运行时生成，gitignore）
@@ -386,7 +390,7 @@ token: eyJhbGciOiJIUzI1NiJ9...
 | 违纪 | `/violations` |
 | 日志 | `/logs` |
 
-详细请求/响应格式见 [API接口文档.md](docs/API接口文档.md)。
+详细请求/响应格式见 [API接口文档.md](docs/api/API接口文档.md)。
 
 ---
 

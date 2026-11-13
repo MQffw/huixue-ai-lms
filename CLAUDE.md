@@ -123,7 +123,7 @@ npm run build    # 产物 dist/
 
 ## 已知问题（改动前先看）
 
-1. MySQL 5.5 已停用，所有配置统一指向 8.0（`127.0.0.1:3307`）；历史 5.5 仅作回滚，见 `docs/MySQL8.0安装与切换手册.md`。
+1. MySQL 5.5 已停用，所有配置统一指向 8.0（`127.0.0.1:3307`）；历史 5.5 仅作回滚，见 `docs/env/MySQL8.0安装与切换手册.md`。
 2. 密码当前为明文比对（`EmpServiceImpl.login`），未使用 BCrypt。
 3. `AnswerValidator`、`UserProfileMemory` 尚未接入主链路（`AiTrace`、`KnowledgeRagAdvisor` 已接入）。
 4. 角色仅有 `ADMIN`，`@RequiresRole` 只校验登录状态。

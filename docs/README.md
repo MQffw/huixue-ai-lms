@@ -73,7 +73,7 @@ docs/
 | 路径 | 说明 | 是否入库 |
 |---|---|---|
 | `deploy/` | nginx 反代、库初始化 SQL（`mysql-init/`）、Maven 镜像、MySQL8 实例模板 | 是（SQL dump 除外） |
-| `scripts/` | `dev-up.bat` / `dev-down.bat` 启停，`tunnel.bat` 公网临时隧道 | 是 |
+| `scripts/` | `dev-up.bat` / `dev-down.bat` 启停容器，`tunnel.bat` / `tunnel-down.bat` 开关公网隧道 | 是 |
 | `config/models.json` | 模型注册表（含加密 Key） | 否 |
 | `uploads/` | 知识库原始文件（数据库有引用，**勿删**） | 否 |
 | `target/`、`logs/`、`frontend/dist/` | 构建与运行产物，可随时删 | 否 |

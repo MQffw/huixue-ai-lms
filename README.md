@@ -262,7 +262,7 @@ npm run dev
 ```bash
 mvn -B -DskipTests package
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d   # 应用 8088
-scripts\tunnel.bat                                                       # 可选：公网临时地址
+scripts\tunnel.bat                                                       # 可选：公网临时地址（Ctrl+C 或 scripts\tunnel-down.bat 关闭）
 ```
 
 ### 8. 测试账号
@@ -301,7 +301,7 @@ huixue-ai-lms/
 │   └── test/java/                    # 单元测试
 ├── frontend/                         # Vue 3 前端源码
 ├── deploy/                           # 部署资产：nginx 反代、mysql-init、Maven 镜像、MySQL8 模板
-├── scripts/                          # dev-up / dev-down / tunnel 三个批处理
+├── scripts/                          # dev-up / dev-down / tunnel / tunnel-down 四个批处理
 ├── docs/                             # 工程文档，索引见 docs/README.md
 │   ├── api/                          # API 接口文档 + Apifox 自动化测试接入
 │   ├── env/                          # Docker 开发环境、MySQL 8 安装与切换

@@ -28,7 +28,16 @@ MySQL80 / redis-server，而是直接连接失败。所以顺序只有一个正�
 
 ### 收工
 
-**不需要停**。容器留着，下次开机 Docker Desktop 一启动、`dev-up.bat` 再跑一遍就是原来的数据（实测 `down` 后重启，26 张表 / 19 条学生数据完好）。
+四层各自独立，**关哪个都不影响别的**，按需处理：
+
+| 层 | 怎么关 | 必须吗 |
+|---|---|---|
+| 公网隧道（如果开过） | 隧道窗口 **Ctrl+C**；窗口已关但地址还能打开 → `scripts\tunnel-down.bat` | **必须**，不关等于把系统挂在公网 |
+| 前端 Vite | 终端里 **Ctrl+C** | 随手关，占 100MB 左右 |
+| 后端 Spring Boot | IDEA 的 Stop 按钮 | 随手关，占 500MB 左右 |
+| MySQL / Redis 容器 | **不用关**，见下 | 可选 |
+
+容器留着最省事：下次开机 Docker Desktop 一启动、`dev-up.bat` 再跑一遍就是原来的数据（实测 `down` 后重启，26 张表 / 19 条学生数据完好）。
 
 | 场景 | 命令 | 数据 |
 |---|---|---|
@@ -38,6 +47,7 @@ MySQL80 / redis-server，而是直接连接失败。所以顺序只有一个正�
 | 只是暂停一下 | `docker compose -f docker-compose.dev.yml stop` | 保留 |
 
 `dev-down.bat` 默认不带参数时只停不删；带 `reset` 会先弹确认再 `down -v`。
+`dev-down.bat` **管不到隧道和前后端进程**——它只管容器。
 
 ### 起不来时的排查顺序
 
@@ -283,10 +293,25 @@ https://xxxx-xxxx-xxxx.trycloudflare.com
 
 延迟偏高（1.3–3.4s）是因为边缘节点落在境外（本次是 lax13），链路绕了一圈，属正常。
 
+**关闭隧道**
+
+| 情况 | 怎么做 |
+|---|---|
+| 隧道窗口还在 | 在那个黑窗口按 **Ctrl+C**，打印 `[OK] Tunnel closed.` 后按任意键关闭；或直接点 × 关窗口 |
+| 窗口没了但地址还能打开（进程残留） | 双击 `scripts\tunnel-down.bat`，它按镜像名找 `cloudflared.exe` 并终止 |
+| 想确认真的关了 | `tasklist \| findstr cloudflared`，无输出即已停；再刷新公网地址应打不开 |
+
+```bash
+scripts\tunnel-down.bat     # 兜底关闭；没在跑时提示 "already closed"
+```
+
+注意关隧道**不会**影响前端和后端——它只是个转发进程，`npm run dev` 和 IDEA 里的应用都不受牵连。
+反过来，`dev-down.bat` 也管不到隧道，两者要分别关。
+
 **注意**
 
 1. **地址是临时的**：进程一关就失效，每次重启 URL 都会变。要固定地址得用具名隧道（需 Cloudflare 账号 + 自己的域名）。
-2. **关窗口即下线**：Ctrl+C 或关掉那个黑窗口，隧道立刻断。
+2. **关窗口即下线**：Ctrl+C 或关掉那个黑窗口，隧道立刻断；窗口被强杀时用上面的 `tunnel-down.bat` 兜底。
 3. **等于把系统公开到公网**：`config/models.json` 里有加密的 AI Key、`/login` 对外开放。
    地址虽然随机但不算保密，演示完立刻关掉。
 4. 前端必须是 `npm run dev` 跑着的状态，否则隧道返回 502。

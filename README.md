@@ -6,7 +6,7 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0.0--M6-blue.svg)](https://docs.spring.io/spring-ai)
 [![Java](https://img.shields.io/badge/Java-18-blue.svg)](https://www.oracle.com/java)
 [![Vue](https://img.shields.io/badge/Vue.js-3.x-4FC08D.svg)](https://vuejs.org)
-[![MySQL](https://img.shields.io/badge/MySQL-5.5+-orange.svg)](https://www.mysql.com)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange.svg)](https://www.mysql.com)
 [![Redis](https://img.shields.io/badge/Redis-5.x-red.svg)](https://redis.io)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
@@ -88,8 +88,8 @@
 
 #### 规划中 / 预留
 
-- 语义记忆（LLM 摘要、用户画像）：`tlias_user_ai_profile` 表已建、接口预留，功能未接线；
-- AI 全链路追踪（`tlias_ai_trace`）与工具调用日志（`tlias_tool_call_log`）：表已建，未启用；
+- 语义记忆（LLM 摘要、用户画像）：`hxt_user_ai_profile` 表已建、接口预留，功能未接线；
+- AI 全链路追踪（`hxt_ai_trace`）与工具调用日志（`hxt_tool_call_log`）：表已建，未启用；
 - 故障自动降级：目前仅客户端创建时降级，请求失败未做二次切换。
 
 ### 安全特性
@@ -114,7 +114,7 @@
 | Spring Boot | 3.5.13 | 应用框架 |
 | Spring AI | 1.0.0-M6 | AI 框架（Function Calling + 流式 + Tool） |
 | MyBatis | 3.5.19 | ORM 框架 |
-| MySQL | 5.5+ | 数据库 |
+| MySQL | 8.0 | 数据库 |
 | Redis | 5.x+ | 对话历史 + AI 回答缓存 |
 | JWT | 0.9.1 | 认证方案 |
 
@@ -150,7 +150,7 @@
 
 - JDK 18+
 - Maven 3.6+
-- MySQL（5.5+ 或 8.x，含 `tlias` 库）
+- MySQL（8.0，`127.0.0.1:3307`，含 `huixuetong` 库）
 - Redis（3.x+）
 - 至少一个 OpenAI 兼容模型的 API Key
 
@@ -164,20 +164,26 @@ cd huixue-ai-lms
 ### 2. 数据库初始化
 
 ```sql
-CREATE DATABASE tlias DEFAULT CHARACTER SET utf8;
-USE tlias;
-SOURCE src/main/resources/db/tlias_extend.sql;
+CREATE DATABASE huixuetong DEFAULT CHARACTER SET utf8;
+USE huixuetong;
+SOURCE src/main/resources/db/schema-extend.sql;
 ```
 
-> 说明：`tlias_extend.sql` 仅含 AI 模块扩展表；业务基础表（emp/dept/student 等）需从现有数据库导出导入，或按业务自行初始化。
+> 说明：`schema-extend.sql` 仅含 AI 模块扩展表；业务基础表（emp/dept/student 等）需从现有数据库导出导入，或按业务自行初始化。
 
 ### 3. 启动 Redis
 
+> **现状（2026-11 起）**：Redis 与 MySQL 都由 Docker 提供，见 [`docs/本地Docker开发环境.md`](docs/本地Docker开发环境.md)。
+> 应用侧原有的 `app.redis-auto-start` / `app.mysql-auto-start` 自动启停逻辑**已于 2026-11 移除**，
+> 应用只负责连接，不再去拉起 Windows 服务或本机进程。依赖统一由 `scripts/dev-up.bat` 启动。
+
+不用 Docker、需要手工起本机 Redis 时：
+
 ```bash
-redis-server
+D:/Redis-8.8.0-Windows-x64-cygwin/redis-server.exe D:/Redis-8.8.0-Windows-x64-cygwin/redis.conf
 ```
 
-默认连接 `localhost:6379`，可在 `application.yml` 中修改。
+端口 6379、无密码，与 `application.yml` 的 `spring.data.redis.*` 一致。
 
 ### 4. 启动后端
 
@@ -243,7 +249,7 @@ npm run dev
 ```
 huixue-ai-lms/
 ├── src/                              # Spring Boot 后端源码
-│   ├── main/java/com/itheima/
+│   ├── main/java/com/huixuetong/
 │   │   ├── ai/
 │   │   │   ├── orchestrator/         # AiOrchestratorService 统一编排层
 │   │   │   ├── tool/                 # 6 个域 Tool 类 + SQL 兜底工具
@@ -259,7 +265,7 @@ huixue-ai-lms/
 │   │   └── aop/                      # 操作日志切面
 │   ├── main/resources/
 │   │   ├── prompts/                  # 按意图拆分的 Prompt 模板
-│   │   ├── db/tlias_extend.sql       # AI 模块扩展表
+│   │   ├── db/schema-extend.sql       # AI 模块扩展表
 │   │   ├── models.json.example       # 模型注册表模板
 │   │   └── application.yml           # 配置文件
 │   └── test/java/                    # 单元测试
@@ -276,13 +282,13 @@ huixue-ai-lms/
 
 | 表名 | 用途 | 状态 |
 |------|------|------|
-| `tlias_knowledge_doc` | 知识库文档主表 | 使用中 |
-| `tlias_knowledge_chunk` | 文档分块（RAG 核心） | 使用中（`embedding_json` 预留向量化） |
-| `tlias_token_usage` | Token 统计 | 使用中 |
-| `tlias_ai_chat_record` | 对话记录 | 使用中 |
-| `tlias_user_ai_profile` | 用户画像 | 预留（功能未接线） |
-| `tlias_ai_trace` | AI 全链路追踪 | 预留 |
-| `tlias_tool_call_log` | 工具调用日志 | 预留 |
+| `hxt_knowledge_doc` | 知识库文档主表 | 使用中 |
+| `hxt_knowledge_chunk` | 文档分块（RAG 核心） | 使用中（`embedding_json` 预留向量化） |
+| `hxt_token_usage` | Token 统计 | 使用中 |
+| `hxt_ai_chat_record` | 对话记录 | 使用中 |
+| `hxt_user_ai_profile` | 用户画像 | 预留（功能未接线） |
+| `hxt_ai_trace` | AI 全链路追踪 | 预留 |
+| `hxt_tool_call_log` | 工具调用日志 | 预留 |
 
 ---
 

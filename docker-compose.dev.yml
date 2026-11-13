@@ -1,0 +1,61 @@
+# ============================================================
+# 本地开发：只跑 MySQL 8 + Redis 7，Spring Boot 仍在 IDE 里启动
+#
+#   docker compose -f docker-compose.dev.yml up -d     # 起库
+#   docker compose -f docker-compose.dev.yml down      # 停库（Redis 一起停）
+#   docker compose -f docker-compose.dev.yml down -v   # 连数据一起删
+#
+# 首次启动会用 deploy/mysql-init/*.sql 初始化数据库；
+# 之后数据保存在命名卷 hxt-dev-mysql / hxt-dev-redis 里。
+#
+# 端口与 application.yml 默认值一致：127.0.0.1:3307 / 127.0.0.1:6379
+# 如果本机 MySQL80 服务还占着 3307，先 Stop-Service MySQL80。
+# ============================================================
+name: huixuetong-dev
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hxt-dev-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      # 兼容 5.5 时代 dump 里的 0000-00-00 默认值
+      - --sql-mode=NO_ENGINE_SUBSTITUTION
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-Root@123456}
+      MYSQL_DATABASE: huixuetong
+      MYSQL_USER: huixuetong
+      MYSQL_PASSWORD: ${DB_PASSWORD:-huixuetong123456}
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - hxt-dev-mysql:/var/lib/mysql
+      - ./deploy/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    container_name: hxt-dev-redis
+    # 与 application.yml 保持一致：无密码、db0
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - hxt-dev-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: "no"
+
+volumes:
+  hxt-dev-mysql:
+  hxt-dev-redis:

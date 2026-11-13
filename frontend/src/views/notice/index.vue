@@ -6,8 +6,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const typeMap = { 1: '通知', 2: '公告', 3: '制度' }
 const typeOpts = Object.entries(typeMap).map(([v, l]) => ({ value: Number(v), label: l }))
 const typeTag = { 1: 'primary', 2: 'warning', 3: 'success' }
+const audienceOpts = [
+  { value: '全体', label: '全体' },
+  { value: '教师', label: '教师' },
+  { value: '学员', label: '学员' }
+]
 
-const searchForm = ref({ keyword: '', type: null })
+const searchForm = ref({ keyword: '', type: null, targetAudience: null })
 const tableData = ref([])
 const selectIds = ref([])
 const handleSelectionChange = (val) => { selectIds.value = val.map(v => v.id) }
@@ -17,9 +22,10 @@ const queryPage = () => {
   const p = { page: pagination.value.currentPage, pageSize: pagination.value.pageSize }
   if (searchForm.value.keyword) p.keyword = searchForm.value.keyword
   if (searchForm.value.type) p.type = searchForm.value.type
+  if (searchForm.value.targetAudience) p.targetAudience = searchForm.value.targetAudience
   queryPageApi(p).then(r => { if (r.code) { tableData.value = r.data.rows; pagination.value.total = r.data.total } })
 }
-const clear = () => { searchForm.value = { keyword: '', type: null }; queryPage() }
+const clear = () => { searchForm.value = { keyword: '', type: null, targetAudience: null }; queryPage() }
 
 const deleteByIds = () => {
   if (!selectIds.value.length) return ElMessage.warning('请选择公告')
@@ -78,6 +84,11 @@ onMounted(() => queryPage())
     <el-form :inline="true" :model="searchForm">
       <el-form-item label="关键词"><el-input v-model="searchForm.keyword" clearable placeholder="标题/内容" /></el-form-item>
       <el-form-item label="类型"><el-select v-model="searchForm.type" clearable placeholder="全部" style="width:100px"><el-option v-for="o in typeOpts" :key="o.value" :label="o.label" :value="o.value" /></el-select></el-form-item>
+      <el-form-item label="受众">
+        <el-select v-model="searchForm.targetAudience" clearable placeholder="全部" style="width:110px">
+          <el-option v-for="o in audienceOpts" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+      </el-form-item>
       <el-form-item><el-button type="primary" @click="queryPage">查询</el-button><el-button type="danger" @click="clear">清空</el-button></el-form-item>
     </el-form>
     </div>
@@ -88,6 +99,13 @@ onMounted(() => queryPage())
         <el-table-column type="index" label="序号" width="55" align="center" />
         <el-table-column label="类型" width="70" align="center">
           <template #default="{ row }"><el-tag :type="typeTag[row.type]" size="small">{{ typeMap[row.type] }}</el-tag></template>
+        </el-table-column>
+        <el-table-column label="受众" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" effect="plain" :type="row.targetAudience === '全体' ? 'info' : 'warning'">
+              {{ row.targetAudience || '全体' }}
+            </el-tag>
+          </template>
         </el-table-column>
         <el-table-column label="标题" min-width="220">
           <template #default="{ row }">
@@ -120,7 +138,11 @@ onMounted(() => queryPage())
       <el-form :model="notice" ref="formRef" :rules="rules" label-width="80px">
         <el-form-item label="标题" prop="title"><el-input v-model="notice.title" /></el-form-item>
         <el-form-item label="类型" prop="type"><el-select v-model="notice.type" style="width:100%"><el-option v-for="o in typeOpts" :key="o.value" :label="o.label" :value="o.value" /></el-select></el-form-item>
-        <el-form-item label="目标受众"><el-input v-model="notice.targetAudience" /></el-form-item>
+        <el-form-item label="目标受众">
+          <el-select v-model="notice.targetAudience" style="width:100%">
+            <el-option v-for="o in audienceOpts" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="内容" prop="content"><el-input v-model="notice.content" type="textarea" :rows="8" /></el-form-item>
         <el-form-item label="置顶"><el-switch v-model="notice.isTop" :active-value="1" :inactive-value="0" /></el-form-item>
       </el-form>

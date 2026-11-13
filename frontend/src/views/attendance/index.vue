@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { queryPageApi, queryClazzListApi, addApi, updateApi, deleteApi } from '@/api/attendance'
+import { queryPageApi, queryClazzListApi, addApi, updateApi, deleteApi, deleteBatchApi } from '@/api/attendance'
 import { queryAllApi as queryAllStuApi } from '@/api/stu'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -46,25 +46,52 @@ watch(() => att.value.studentId, (newVal) => {
   }
 })
 
-const addAtt = () => { att.value = { id: null, studentId: null, clazzId: null, attendDate: new Date().toISOString().slice(0,10), status: null, remark: '' }; dialogVisible.value = true; formTitle.value = '新增考勤' }
+const today = () => {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+const addAtt = () => { att.value = { id: null, studentId: null, clazzId: null, attendDate: today(), status: null, remark: '' }; dialogVisible.value = true; formTitle.value = '新增考勤' }
 const editAtt = (row) => { att.value = { ...row }; dialogVisible.value = true; formTitle.value = '编辑考勤' }
+const errMsg = (e) => (e && e.response && e.response.data && e.response.data.msg) || '操作失败'
 const save = (f) => {
   if (!f) return
   f.validate(async (valid) => {
-    if (valid) {
-      const api = att.value.id ? updateApi(att.value) : addApi(att.value)
-      const r = await api
-      if (r.code) { ElMessage.success('保存成功'); dialogVisible.value = false; queryPage() } else ElMessage.error(r.msg)
+    if (!valid) return
+    try {
+      const r = att.value.id ? await updateApi(att.value) : await addApi(att.value)
+      if (r.code === 1) {
+        ElMessage.success('保存成功')
+        dialogVisible.value = false
+        queryPage()
+      } else {
+        ElMessage.error(r.msg || '保存失败')
+      }
+    } catch (e) {
+      ElMessage.error(errMsg(e))
     }
   })
 }
-const delById = (id) => ElMessageBox.confirm('确定删除？', '提示', { type: 'warning' }).then(async () => { await deleteApi(id); ElMessage.success('已删除'); queryPage() }).catch(() => {})
+const delById = (id) => ElMessageBox.confirm('确定删除？', '提示', { type: 'warning' })
+  .then(async () => {
+    try {
+      await deleteApi(id)
+      ElMessage.success('已删除')
+      queryPage()
+    } catch (e) {
+      ElMessage.error(errMsg(e))
+    }
+  }).catch(() => {})
 const delByIds = () => {
   if (selectIds.value.length === 0) { ElMessage.warning('请选择要删除的记录'); return }
   ElMessageBox.confirm('确定删除选中的考勤记录吗？', '批量删除', { type: 'warning' }).then(async () => {
-    await deleteApi(selectIds.value.join(','))
-    ElMessage.success('批量删除成功')
-    queryPage()
+    try {
+      await deleteBatchApi(selectIds.value.join(','))
+      ElMessage.success('批量删除成功')
+      queryPage()
+    } catch (e) {
+      ElMessage.error(errMsg(e))
+    }
   }).catch(() => {})
 }
 

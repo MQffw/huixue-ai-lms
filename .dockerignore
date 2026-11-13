@@ -1,0 +1,21 @@
+.git
+.gitignore
+.idea
+.workbuddy
+.claude
+# 只把打好的 jar 放进构建上下文，classes/报告等一律不进
+# （Dockerfile.runtime 需要 COPY target/*.jar；用 target/** 而非 target，
+#   否则父目录被整体排除后无法再用 ! 重新包含）
+target/**
+!target/*.jar
+logs
+uploads
+docs
+frontend/node_modules
+frontend/dist
+*.iml
+*.log
+.tmp_*
+README.md
+docs/**
+deploy/mysql-init/*.sql

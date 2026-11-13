@@ -43,3 +43,18 @@ frontend/.env.local
 
 # 模型注册表运行时配置（含密钥，不提交）
 **/config/models.json
+
+# 工作区内的 Maven 本地仓库（规避沙箱对 ~/.m2 的写入限制）
+.m2repo/
+
+# 数据库备份（含业务数据，不提交）
+backup/
+
+# 知识库原始上传文件（运行时数据，数据库里有引用，体积大，不提交）
+uploads/
+
+# 数据库初始化 dump（含业务数据，不提交；保留 .gitkeep）
+deploy/mysql-init/*.sql
+
+# 本地 Agent 工具目录
+.workbuddy/

@@ -1,0 +1,134 @@
+# ============================================================
+# 方案 C：全容器 + 热更新开发（改代码不用重建镜像）
+#
+#   docker compose -f docker-compose.debug.yml up -d
+#   访问 http://localhost:5173        （前端 Vite Dev Server，带 HMR）
+#   后端 http://localhost:8080        （容器内 mvn spring-boot:run）
+#   远程调试 localhost:5005           （IDEA Remote JVM Debug 可 attach 打断点）
+#
+# 与方案 A 的区别：不 build 镜像，源码 / target 直接挂进容器，
+# 改 Vue 秒级热更新；改 Java 后由 devtools 感知 target/classes 变化自动重启。
+#
+# 停止：docker compose -f docker-compose.debug.yml down
+# 重置库：docker compose -f docker-compose.debug.yml down -v
+#
+# 注意：本文件和 docker-compose.dev.yml 抢同一批端口（3307/6379/8080），
+#       切换前先 `docker compose -f docker-compose.dev.yml down`。
+#       首次启动会在容器内下 Maven 依赖，国内可能很慢，先看 docs 里 6.2 的加速配置。
+# ============================================================
+name: huixuetong-debug
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hxt-debug-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --sql-mode=NO_ENGINE_SUBSTITUTION
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-Root@123456}
+      MYSQL_DATABASE: huixuetong
+      MYSQL_USER: huixuetong
+      MYSQL_PASSWORD: ${DB_PASSWORD:-huixuetong123456}
+      TZ: Asia/Shanghai
+    ports:
+      # 与 application.yml 一致，IDEA 里跑后端也能直连
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - hxt-debug-mysql:/var/lib/mysql
+      - ./deploy/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: hxt-debug-redis
+    # 与 application.yml 一致：无密码、db0
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - hxt-debug-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  huixuetong-app:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: hxt-debug-app
+    working_dir: /build
+    command:
+      - mvn
+      - -B
+      - -DskipTests
+      - "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -Duser.timezone=Asia/Shanghai"
+      - spring-boot:run
+    environment:
+      TZ: Asia/Shanghai
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/huixuetong?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: huixuetong
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-huixuetong123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_DATABASE: "0"
+      # devtools 主动重启，配合 IDEA 自动编译或 exec mvn compile 使用
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      MODEL_KEY_SECRET: ${MODEL_KEY_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+      MAVEN_OPTS: "-Dmaven.repo.local=/root/.m2/repository"
+    volumes:
+      - ./pom.xml:/build/pom.xml
+      - ./src:/build/src
+      # 挂 target：IDEA 的 Build 产物直接落到容器里，devtools 立刻重启
+      - ./target:/build/target
+      - ./config:/build/config
+      - ./uploads:/build/uploads
+      - ./logs:/build/logs
+      # 依赖缓存：只在第一次下载，后续重启不再联网
+      - hxt-debug-m2:/root/.m2
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:5005:5005"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: "no"
+
+  huixuetong-web:
+    image: node:20-alpine
+    container_name: hxt-debug-web
+    working_dir: /web
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      # 容器内代理到 app 服务名；本机直接 npm run dev 时无需该变量
+      VITE_PROXY_TARGET: "http://huixuetong-app:8080"
+      # Windows 盘挂载进容器时 inotify 不生效，用轮询兜底 HMR
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    volumes:
+      - ./frontend:/web
+      # 用 Linux 版 node_modules 覆盖宿主 Windows 版，避免平台二进制不兼容
+      - hxt-debug-node-modules:/web/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      - huixuetong-app
+    restart: "no"
+
+volumes:
+  hxt-debug-mysql:
+  hxt-debug-redis:
+  hxt-debug-m2:
+  hxt-debug-node-modules:

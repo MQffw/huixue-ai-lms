@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+# ============================================================
+# 精简镜像：不在容器内编译，直接使用本机已打好的 jar
+# 适用：101 没有外网 / 不想在服务器上跑 Maven 的场景
+#
+#   本机：mvn -DskipTests package
+#   上传：scp target/huixuetong-lms-0.0.1-SNAPSHOT.jar root@101:/opt/huixuetong/
+#   构建：docker build -f Dockerfile.runtime -t huixuetong-app:latest .
+# ============================================================
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+
+ENV TZ=Asia/Shanghai \
+    JAVA_OPTS="-Xms256m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY target/huixuetong-lms-0.0.1-SNAPSHOT.jar /app/app.jar
+RUN mkdir -p /app/logs /app/uploads/knowledge
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:8080/actuator/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Duser.timezone=Asia/Shanghai -jar /app/app.jar"]

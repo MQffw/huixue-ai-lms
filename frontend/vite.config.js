@@ -12,9 +12,11 @@ export default defineConfig({
     }
   },
   server: {
+    // 本机开发默认打 localhost:8080；容器内开发由 compose 注入 http://huixuetong-app:8080
+    host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8080',
         secure: false,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),

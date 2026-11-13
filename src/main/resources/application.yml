@@ -1,15 +1,20 @@
 spring:
   application:
-    name: tlias-web-management
+    name: huixuetong-lms
+  # 把根目录 .env 当 properties 读进来，IDE 里直接 Run 就能拿到密钥，
+  # 不用在 Run Configuration 里手填环境变量（和容器共用同一份 .env，避免两边不一致）。
+  # optional: 表示文件不存在时不报错——容器里没有 .env，改由 compose 注入。
+  config:
+    import: optional:file:./.env[.properties]
   autoconfigure:
     exclude:
       - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
-  # 数据库连接信息
+  # 数据库连接信息（统一使用 MySQL 8.0，端口 3307）
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/tlias?useSSL=false&serverTimezone=UTC&characterEncoding=utf8&allowPublicKeyRetrieval=true
-    username: root
-    password: ${DB_PASSWORD:123456}  # 开发用默认值，生产必须通过环境变量覆盖
+    url: jdbc:mysql://127.0.0.1:3307/huixuetong?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci&allowPublicKeyRetrieval=true
+    username: huixuetong
+    password: ${DB_PASSWORD:huixuetong123456}  # 开发默认值，生产用环境变量覆盖
     # HikariCP 连接池调优
     hikari:
       maximum-pool-size: 20          # 最大连接数（默认10，按CPU核心数*2+磁盘数调整）
@@ -17,7 +22,7 @@ spring:
       connection-timeout: 10000      # 获取连接超时 10s（默认30s，快速失败）
       idle-timeout: 300000           # 空闲连接回收 5min（默认10min）
       max-lifetime: 1800000          # 连接最大存活 30min（默认30min，避免MySQL wait_timeout）
-      pool-name: TliasHikariPool     # 连接池名称（便于监控识别）
+      pool-name: HuixuetongHikariPool     # 连接池名称（便于监控识别）
       auto-commit: true              # 自动提交
       validation-timeout: 3000       # 连接校验超时 3s
   servlet:
@@ -40,12 +45,13 @@ mybatis:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true #驼峰命名映射开关
-  mapper-locations: classpath:com/itheima/mapper/*.xml
+  mapper-locations: classpath:com/huixuetong/mapper/*.xml
 
-#配置事务管理日志级别
+#日志级别：全局 INFO
+#SQL 打印不在这里控制，由上方 mybatis.configuration.log-impl 的 StdOutImpl 负责，不受本级别影响
 logging:
   level:
-    org.springframework.jdbc.support.JdbcTransactionManager: debug
+    root: info
 
 # AI 智能助手配置（自定义多模型配置，供 Agent 工厂使用）
 ai:
@@ -68,16 +74,20 @@ server:
   port: 8080
   servlet:
     context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true   # 修复 multipart 中文文件名按 ISO-8859-1 解码导致的乱码
 
 # Actuator 健康监控配置
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,env,loggers  # 暴露的端点
+        include: health,info             # 仅暴露健康与基本信息（env/loggers 不对外）
   endpoint:
     health:
-      show-details: always          # 显示详细健康信息（DB、磁盘、AI服务等）
+      show-details: never              # 不向匿名请求暴露 DB/磁盘细节
     loggers:
       enabled: true                 # 允许动态调整日志级别
   health:
@@ -95,10 +105,19 @@ springdoc:
   group-configs:
     - group: 'AI智能助手'
       paths-to-match: /ai/**
-      packages-to-scan: com.itheima.controller
+      packages-to-scan: com.huixuetong.controller
     - group: '业务管理'
       paths-to-match: /depts/**,/emps/**,/students/**,/clazzs/**,/report/**
-      packages-to-scan: com.itheima.controller
+      packages-to-scan: com.huixuetong.controller
     - group: '知识库管理'
       paths-to-match: /knowledge/**
-      packages-to-scan: com.itheima.controller
+      packages-to-scan: com.huixuetong.controller
+    - group: '教学管理'
+      paths-to-match: /courses/**,/exams/**
+      packages-to-scan: com.huixuetong.controller
+    - group: '学生事务'
+      paths-to-match: /scores/**,/attendance/**,/violations/**,/employments/**,/payments/**
+      packages-to-scan: com.huixuetong.controller
+    - group: '系统服务'
+      paths-to-match: /notices/**,/ai-stats/**,/login
+      packages-to-scan: com.huixuetong.controller

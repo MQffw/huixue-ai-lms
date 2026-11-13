@@ -1,0 +1,38 @@
+<!--
+  容器内 / 内网构建用的 Maven 配置（COPY 到 /root/.m2/settings.xml）
+  用途：docker build 走标准多阶段时，把依赖源换到阿里云，避免从 repo.maven.apache.org 慢慢拉。
+
+  注意 mirrorOf 里的排除项：
+    spring-ai 等里程碑版本（如 1.0.0-M6）只发布在 repo.spring.io/milestone，
+    阿里云镜像没有，必须放行直连。漏掉排除项会报 "Could not find artifact"。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <name>Aliyun Public</name>
+      <mirrorOf>*,!spring-milestones,!spring-snapshots</mirrorOf>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+
+  <profiles>
+    <profile>
+      <id>spring-milestones</id>
+      <repositories>
+        <repository>
+          <id>spring-milestones</id>
+          <url>https://repo.spring.io/milestone</url>
+          <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+      </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>spring-milestones</id>
+          <url>https://repo.spring.io/milestone</url>
+          <snapshots><enabled>false</enabled></snapshots>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+  </profiles>
+</settings>

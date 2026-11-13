@@ -6,10 +6,11 @@ import ModelManageDialog from './ModelManageDialog.vue'
 const messages = ref([])
 const inputMessage = ref('')
 const loading = ref(false)
+let abortController = null
 const messagesContainer = ref(null)
-const selectedModel = ref('longcat')
+const selectedModel = ref('')
 const modelManageVisible = ref(false)
-const lastModel = ref('longcat')
+const lastModel = ref('')
 const onModelSelect = (v) => {
   if (v === '__manage__') {
     selectedModel.value = lastModel.value
@@ -70,9 +71,8 @@ const sessionId = ref(getOrCreateSessionId())
 
 // 模型列表：优先从后端注册表动态加载，失败时回退到默认列表
 const modelOptions = ref([
-  { value: 'deepseek', label: 'DeepSeek V4 Pro' },
-  { value: 'mimo', label: 'Mimo V2.5 Pro' },
-  { value: 'longcat', label: 'LongCat 2.0' }
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'mimo', label: 'Mimo' }
 ])
 
 const loadModels = async () => {
@@ -122,7 +122,7 @@ onMounted(async () => {
       headers: { 'token': loginUser?.token || '' }
     })
     const result = await resp.json()
-    if (result.code === 200 && result.data && result.data.length > 0) {
+    if (result.code === 1 && result.data && result.data.length > 0) {
       messages.value = result.data.map(m => ({ role: m.role, content: m.content }))
     }
   } catch (e) { /* 静默失败 */ }
@@ -151,6 +151,10 @@ const clearChat = async () => {
   } catch (e) { /* 静默 */ }
 }
 
+const stopGenerating = () => {
+  if (abortController) abortController.abort()
+}
+
 const sendMessage = async () => {
   const content = inputMessage.value.trim()
   if (!content || loading.value) return
@@ -158,8 +162,9 @@ const sendMessage = async () => {
   messages.value.push({ role: 'user', content })
   inputMessage.value = ''
   loading.value = true
+  abortController = new AbortController()
 
-  const aiMsg = { role: 'assistant', content: '' }
+  const aiMsg = { role: 'assistant', content: '', citations: [] }
   messages.value.push(aiMsg)
   scrollToBottom()
 
@@ -176,57 +181,97 @@ const sendMessage = async () => {
         'Content-Type': 'application/json',
         'token': loginUser?.token || ''
       },
-      body: JSON.stringify({ message: content, history, modelType: selectedModel.value, sessionId: sessionId.value })
+      body: JSON.stringify({
+        message: content,
+        history,
+        modelType: selectedModel.value || undefined,
+        sessionId: sessionId.value
+      }),
+      signal: abortController.signal
     })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
     let received = false
+    let currentEvent = 'message'
+    let streamError = ''
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
 
-      received = true
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (line.startsWith('data:') && !line.includes('[DONE]')) {
-          let data = line.substring(5).trim()
-          if (data) {
-            data = data.replace(/\[\[TOOL\]\].*?\[\[END_TOOL\]\]/g, '')
-            data = data.replace(/<longcat_tool_call>.*?<\/longcat_tool_call>/g, '')
-            data = data.replace(/<longcat_tool_call>.*$/g, '')
-            data = data.replace(/<longcat_arg_key>.*?<\/longcat_arg_key>/g, '')
-            data = data.replace(/\*\*/g, '')
-            data = data.replace(/##/g, '')
-            data = data.replace(/```sql/g, '')
-            data = data.replace(/```/g, '')
-            data = data.replace(/^\s*\|[-| :]+\|\s*$/gm, '')
-            data = data.replace(/^\|(.+)\|$/gm, (m, p1) => p1.replace(/\|/g, '  '))
+      for (const raw of lines) {
+        const line = raw.replace(/\r$/, '')
 
-            if (data) {
-              aiMsg.content += data
-              scrollToBottom()
-            }
-          }
+        // SSE 命名事件：event: meta/delta/error/done
+        if (line.startsWith('event:')) {
+          currentEvent = line.substring(6).trim()
+          continue
+        }
+        if (!line.startsWith('data:')) continue
+
+        const payload = line.substring(5).trim()
+        if (!payload) continue
+
+        if (currentEvent === 'meta') {
+          try { console.debug('[ai] meta', JSON.parse(payload)) } catch (e) { /* ignore */ }
+          continue
+        }
+        if (currentEvent === 'done') {
+          try { console.debug('[ai] done', JSON.parse(payload)) } catch (e) { /* ignore */ }
+          continue
+        }
+        if (currentEvent === 'error') {
+          try { streamError = JSON.parse(payload).message || 'AI 服务暂时不可用' } catch (e) { streamError = 'AI 服务暂时不可用' }
+          continue
+        }
+        if (currentEvent === 'cite') {
+          try { aiMsg.citations = JSON.parse(payload) || [] } catch (e) { /* ignore */ }
+          continue
+        }
+
+        // delta（同时兼容不带 event 名的旧服务端）
+        received = true
+        let text = payload
+          .replace(/\[\[TOOL\]\][\s\S]*?\[\[END_TOOL\]\]/g, '')
+          .replace(/<longcat_tool_call>[\s\S]*?<\/longcat_tool_call>/g, '')
+          .replace(/<longcat_tool_call>[\s\S]*$/g, '')
+          .replace(/<longcat_arg_key>[\s\S]*?<\/longcat_arg_key>/g, '')
+          .replace(/\*\*/g, '')
+          .replace(/##/g, '')
+          .replace(/```sql/g, '')
+          .replace(/```/g, '')
+          .replace(/^\s*\|[-| :]+\|\s*$/gm, '')
+          .replace(/^\|(.+)\|$/gm, (m, p1) => p1.replace(/\|/g, '  '))
+
+        if (text) {
+          aiMsg.content += text
+          scrollToBottom()
         }
       }
     }
 
-    // 收尾清理：先还原换行占位符
+    if (streamError) {
+      throw new Error(streamError)
+    }
+
+    // 收尾清理：还原换行占位符 + 剥离残留工具标记
     aiMsg.content = aiMsg.content.replace(/§n§/g, '\n')
-    // 剥离可能残留的工具调用标记
     aiMsg.content = aiMsg.content.replace(/\[\[TOOL\]\][\s\S]*?\[\[END_TOOL\]\]/g, '')
     if (aiMsg.content) {
       aiMsg.content = aiMsg.content
         .replace(/^(我来|让我|正在|请稍候|稍等).{0,50}(查询|查看|搜索|获取|检索|加载|调用).{0,20}\n*/gm, '')
         .trim()
     }
-    // 检测无效响应（SQL碎片/纯废话）
     const broken = aiMsg.content && (
       aiMsg.content.length < 10 ||
       /\b(SELECT|FROM|WHERE|COUNT|INSERT|UPDATE|DELETE)\b/gi.test(aiMsg.content)
@@ -235,11 +280,18 @@ const sendMessage = async () => {
       aiMsg.content = '模型未返回有效响应，请稍后重试或切换其他模型。'
     }
   } catch (error) {
-    console.error('AI请求失败:', error)
-    aiMsg.content = '请求失败，请检查网络或稍后重试。'
+    if (error.name === 'AbortError') {
+      // 用户主动停止：保留已生成内容，不报错
+      aiMsg.content = aiMsg.content.replace(/§n§/g, '\n').trim() || '（已停止生成）'
+    } else {
+      console.error('AI请求失败:', error)
+      aiMsg.content = aiMsg.content
+        ? aiMsg.content.replace(/§n§/g, '\n')
+        : (error.message || '请求失败，请检查网络或稍后重试。')
+    }
   } finally {
-    // 确保加载指示器至少显示500ms，避免闪烁
-    await new Promise(r => setTimeout(r, 500))
+    abortController = null
+    await new Promise(r => setTimeout(r, 300))
     loading.value = false
   }
 }
@@ -312,7 +364,16 @@ const scrollToBottom = () => {
           <el-icon v-if="msg.role === 'user'"><User /></el-icon>
           <el-icon v-else><ChatDotRound /></el-icon>
         </div>
-        <div class="message-content">{{ msg.content }}</div>
+        <div class="message-content">
+          {{ msg.content }}
+          <div v-if="msg.role === 'assistant' && msg.citations && msg.citations.length" class="message-cites">
+            <span class="cites-label">来源</span>
+            <el-tag v-for="(c, i) in msg.citations" :key="i" size="small" effect="plain" class="cite-tag">
+              {{ c.title }}<template v-if="c.chunkIndex !== null && c.chunkIndex !== undefined"> · 片段{{ c.chunkIndex + 1 }}</template>
+              <template v-if="c.score"> · {{ Number(c.score).toFixed(2) }}</template>
+            </el-tag>
+          </div>
+        </div>
       </div>
 
       <!-- 加载状态 -->
@@ -353,6 +414,7 @@ const scrollToBottom = () => {
           <el-icon><ChatDotRound /></el-icon>
         </template>
       </el-input>
+      <el-button v-if="loading" class="stop-btn" @click="stopGenerating">停止</el-button>
       <el-button type="primary" :icon="Promotion" @click="sendMessage"
                  :disabled="loading || !inputMessage.trim()"
                  :loading="loading"
@@ -545,6 +607,27 @@ const scrollToBottom = () => {
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+/* 知识库引用来源 */
+.message-cites {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  white-space: normal;
+}
+
+.cites-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.cite-tag {
+  border-radius: 6px;
+}
+
 /* 加载动画 */
 .typing {
   display: flex;
@@ -664,5 +747,21 @@ const scrollToBottom = () => {
 .send-btn:hover {
   background: #E60012;
   border-color: #E60012;
+}
+
+/* 停止生成：次级操作，沿用 12px 圆角与品牌红 hover */
+.stop-btn {
+  border-radius: 12px;
+  padding: 0 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #666;
+  font-weight: 500;
+}
+
+.stop-btn:hover {
+  color: #E60012;
+  border-color: rgba(230, 0, 18, 0.35);
+  background: rgba(230, 0, 18, 0.04);
 }
 </style>

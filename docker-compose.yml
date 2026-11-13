@@ -1,0 +1,94 @@
+# ============================================================
+# 方案 A：全隔离部署（推荐用于答辩/迁移）
+#   app + web + MySQL 8 + Redis 7 全在 Docker 内，只暴露 8088 一个宿主端口
+#   启动：docker compose -f docker-compose.yml up -d --build
+# 注意：首次启动前必须把 huixuetong 全量 dump 放到 deploy/mysql-init/
+# ============================================================
+name: huixuetong
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: huixuetong-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      # 兼容从 MySQL 5.5 导出的、含 0000-00-00 默认值的 DDL
+      - --sql-mode=NO_ENGINE_SUBSTITUTION
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: huixuetong
+      MYSQL_USER: huixuetong
+      MYSQL_PASSWORD: ${DB_PASSWORD:-huixuetong123456}
+      TZ: Asia/Shanghai
+    volumes:
+      - huixuetong-mysql-data:/var/lib/mysql
+      - ./deploy/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    # 需要宿主机用 Navicat 连调试时再放开（3307 避开宿主机 3306）
+    # ports:
+    #   - "127.0.0.1:3307:3306"
+
+  redis:
+    image: redis:7-alpine
+    container_name: huixuetong-redis
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-redis123456}"]
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - huixuetong-redis-data:/data
+    restart: unless-stopped
+    # ports:
+    #   - "127.0.0.1:6380:6379"
+
+  huixuetong-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: huixuetong-app
+    environment:
+      TZ: Asia/Shanghai
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/huixuetong?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: huixuetong
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-huixuetong123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      # 与宿主机 lease 系统隔离：Huixuetong 用 Redis 1 号库
+      SPRING_DATA_REDIS_DATABASE: "1"
+      # 必须与加密 config/models.json 时使用的密钥一致，否则 API Key 解不开
+      MODEL_KEY_SECRET: ${MODEL_KEY_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+    volumes:
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  huixuetong-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: huixuetong-web
+    ports:
+      # 只对外暴露这一个端口；102 的 Nginx 反代到这里
+      - "8088:80"
+    depends_on:
+      - huixuetong-app
+    restart: unless-stopped
+
+volumes:
+  huixuetong-mysql-data:
+  huixuetong-redis-data:

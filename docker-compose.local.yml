@@ -1,0 +1,16 @@
+# ============================================================
+# 本机快速部署覆盖层：复用本机已打好的 jar，不在容器内跑 Maven
+#
+#   mvn -DskipTests package                # 本机打包（约 40 秒，走本地 .m2）
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# 为什么需要它：容器内 `mvn package` 要下 1GB+ 依赖，其中 spring-ai 只能从
+# repo.spring.io/milestone 拉，国内经常卡住（实测 20 分钟无进展）。
+# 本机已有完整 .m2 + 阿里云镜像，40 秒就能出包。
+#
+# 交付到干净机器时去掉 `-f docker-compose.local.yml`，走标准多阶段构建。
+# ============================================================
+services:
+  huixuetong-app:
+    build:
+      dockerfile: Dockerfile.runtime

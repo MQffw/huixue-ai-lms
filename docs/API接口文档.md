@@ -1,4 +1,4 @@
-# Tlias智能学习辅助系统 - API接口文档
+# Huixuetong智能学习辅助系统 - API接口文档
 
 ## 目录
 - [1. 部门管理](#1-部门管理)
@@ -1612,7 +1612,7 @@
         "id": 15,
         "operateEmpId": 2,
         "operateTime": "2023-12-18T17:37:15",
-        "className": "com.itheima.controller.DeptController",
+        "className": "com.huixuetong.controller.DeptController",
         "methodName": "add",
         "methodParams": "[Dept(id=null, name=投资部, createTime=null, updateTime=null)]",
         "returnValue": "Result(code=1, msg=null, data=null)",
@@ -1623,7 +1623,7 @@
         "id": 14,
         "operateEmpId": 2,
         "operateTime": "2023-12-18T17:37:07",
-        "className": "com.itheima.controller.DeptController",
+        "className": "com.huixuetong.controller.DeptController",
         "methodName": "add",
         "methodParams": "[Dept(id=null, name=市场部, createTime=null, updateTime=null)]",
         "returnValue": "Result(code=1, msg=null, data=null)",
@@ -1644,7 +1644,7 @@
 #### 6.1.1 基本信息
 - **请求路径**：`/login`
 - **请求方式**：`POST`
-- **接口描述**：该接口用于员工登录Tlias智能学习辅助系统，登录完毕后，系统下发JWT令牌。
+- **接口描述**：该接口用于员工登录Huixuetong智能学习辅助系统，登录完毕后，系统下发JWT令牌。
 
 #### 6.1.2 请求参数
 - **参数格式**：`application/json`

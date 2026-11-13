@@ -1,151 +1,138 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为在本仓库中工作的 Claude Code 提供上下文。
 
-## Project Overview
+## 项目概览
 
-Tlias 智能教学管理系统 - 基于 Spring Boot 3.5.13 + Vue 3 + Spring AI 的现代化培训管理系统。集成 AI Agent 智能助手，支持自然语言查询业务数据和日常对话。
+慧学通（Huixuetong）智能教学管理系统：Spring Boot 3.5.13 + Vue 3 + Spring AI 1.0.0-M6。
+以 AI Agent 为核心，提供教务数据查询、制度问答、统计分析与业务管理。
 
-## Build and Run Commands
+- 后端包名：`com.huixuetong`
+- 构建产物：`target/huixuetong-lms-0.0.1-SNAPSHOT.jar`
+- 前端源码：仓库内 `frontend/`（Vue 3 + Vite + Element Plus）
+
+## 构建与运行
 
 ```bash
-# 构建项目
-mvn clean package -DskipTests
-
-# 运行项目
-mvn spring-boot:run
-
-# 打包后运行
-java -jar target/tlias-web-management-0.0.1-SNAPSHOT.jar
-
-# 运行所有测试
-mvn test
+mvn clean package -DskipTests     # 构建
+mvn spring-boot:run               # 开发运行
+java -jar target/huixuetong-lms-0.0.1-SNAPSHOT.jar
+mvn test                          # 测试（当前基线 121 个用例，全部通过）
 ```
 
-## Architecture
+## 技术栈
 
-### Technology Stack
-- **Backend**: Java 18, Spring Boot 3.5.13, Spring AI 1.0.0-M6, MyBatis 3.0.5, MySQL 8.0, Redis 8.x
-- **Frontend**: Vue 3, Vite, Element Plus (source: `C:\Users\mq\Desktop\vue-tlias-management`, dist: `front-dist/`)
-- **AI**: Spring AI ChatClient + @Tool 模式，支持 DeepSeek / Mimo / LongCat 三种模型
-- **Security**: JWT authentication, RBAC 权限控制, AOP 操作日志
+- Java 18、Spring Boot 3.5.13、Spring AI 1.0.0-M6、MyBatis 3.0.5
+- MySQL 8.0（`127.0.0.1:3307`，库 `huixuetong`，账号 `huixuetong`）、Redis 8.x
+- JWT（jjwt 0.9.1）、Guava RateLimiter、SpringDoc、Actuator
+- 前端：Vue 3、Vite、Element Plus、ECharts
 
-### AI Agent 架构（核心）
+## 后端结构
 
 ```
-前端(带sessionId) → AiChatController(userId+sessionId)
-  → Redis 读历史(ai:chat:session:{userId}:{sessionId}, 24h TTL, 40条截断)
-  → TliasAgentService.chat()
-    → Spring AI ChatClient + @Tool 自动调用业务方法
-  → 提取 <result> 标签（过滤 <thinking> 中间过程）
-  → SSE 逐字输出（20ms/字，打字机效果）
-  → Redis 同步更新历史
-  → @Async 异步写入 tlias_ai_chat_record
-  → AOP 自动记 emp_log（只记接口调用，不存对话内容）
+src/main/java/com/huixuetong/
+├── HuixuetongApplication.java
+├── ai/
+│   ├── orchestrator/AiOrchestratorService.java   # 统一编排：安全→意图→记忆→RAG→工具→SSE→持久化
+│   ├── router/{Intent,IntentRouter}.java         # 6 类意图的规则路由
+│   ├── tool/
+│   │   ├── StudentTools.java       # 6 个 @Tool
+│   │   ├── EmployeeTools.java      # 7 个
+│   │   ├── ClazzTools.java         # 4 个
+│   │   ├── CourseTools.java        # 4 个
+│   │   ├── AffairsTools.java       # 14 个（考勤/成绩/违纪/缴费/就业）
+│   │   ├── NoticeTools.java        # 3 个（SQL 兜底工具已禁用）
+│   │   └── SqlQueryTools.java      # 只读 SQL 兜底（默认不注入）
+│   ├── rag/                        # KnowledgeBaseService / KnowledgeRagAdvisor / SentenceSplitter
+│   ├── memory/                     # RedisChatHistoryManager 等（部分未接线）
+│   ├── advisor/                    # SafeGuard / QuestionAnswer / TokenTracking / Summarization
+│   ├── cache/AiAnswerCache.java    # 上下文指纹缓存
+│   ├── prompt/AiPromptBuilder.java # 按意图拼装 7 个 Prompt 模板
+│   └── trace/AiTrace.java          # 全链路追踪（已接入：hxt_ai_trace + 工具日志）
+├── config/
+│   ├── ChatClientConfig.java       # 按注册表懒建 ChatClient
+│   ├── model/                      # 模型注册表 + API Key AES-GCM 加密
+│   └── AiHealthIndicator.java
+├── controller/                     # 19 个 Controller
+├── service/ + service/impl/        # 业务服务
+├── mapper/                         # 22 个 MyBatis Mapper
+├── pojo/                           # 实体与查询参数
+├── interceptor/                    # TokenInterceptor / RateLimitInterceptor
+├── aop/LogAspect.java              # 写操作审计到 emp_log
+└── security/sql/                   # SQL 白名单/只读/关键字/子查询深度校验
 ```
 
-### Key Components
+## AI 调用链路
+
 ```
-src/main/java/com/itheima/
-├── ai/                                 # AI 模块
-│   ├── TliasAgentTools.java            # @Tool 工具类（13个方法，查询学员/员工/班级/部门）
-│   └── RedisChatHistoryManager.java    # Redis 对话历史管理器
-├── controller/
-│   └── AiChatController.java           # AI 聊天（SSE + CompletableFuture 异步）
-├── service/
-│   ├── TliasAgentService.java          # Agent 服务接口
-│   └── impl/
-│       ├── TliasAgentServiceImpl.java  # Agent 实现（ChatClient + Redis + @Async MySQL）
-│       ├── AiChatServiceImpl.java      # 旧实现（保留备用，SQL生成模式）
-│       └── ...                         # 业务 Service
-├── mapper/
-│   ├── ChatRecordMapper.java           # 对话记录 Mapper
-│   └── ...                             # 业务 Mapper
-├── pojo/
-│   ├── ChatRecord.java                 # 对话记录实体
-│   └── ...                             # 业务实体
-├── config/                             # 配置类
-├── interceptor/                        # 拦截器（TokenInterceptor, RateLimitInterceptor）
-├── aop/LogAspect.java                  # 操作日志（SSE响应记录为"SSE流式响应"，不存对话内容）
-└── security/sql/                       # SQL 安全模块（旧模式保留备用）
+前端（携带 sessionId + token）
+  → POST /ai/chat（SSE）
+  → AiChatController
+  → AiOrchestratorService
+      1. SafeGuardAdvisor 正则注入检测
+      2. IntentRouter 规则路由（DATA_STATS / DATA_QUERY / KNOWLEDGE_RAG / TEXT_GEN / CHAT / GREETING）
+      3. 读 Redis 历史（ai:chat:session:{userId}:{sessionId}，40 条 / 24h）
+      4. 按意图选 Tool Bean，Spring AI 执行 Function Calling
+      5. 无工具意图走 token 级流式；工具意图先执行工具再分块推送
+      6. 异步写 hxt_ai_chat_record、估算 Token 写 hxt_token_usage
 ```
 
-### Database Tables
+## 数据库
 
-**业务表（AI 可查询）：**
-- `dept` - 部门表 (id, name)
-- `emp` - 员工表 (id, name, gender, phone, job, salary, dept_id)
-- `clazz` - 班级表 (id, name, room, begin_date, end_date, master_id, subject)
-- `student` - 学员表 (id, name, no, gender, degree, clazz_id, violation_count)
+业务表：`dept`、`emp`、`emp_expr`、`clazz`、`student`、`course`、`course_schedule`、
+`attendance`、`exam`、`score`、`violation_log`、`payment`、`employment`、`notice`、`emp_log`。
 
-**系统表：**
-- `emp_log` - 操作审计日志（AOP 自动记录）
-- `tlias_ai_chat_record` - AI 对话记录（异步持久化）
+AI 扩展表（`src/main/resources/db/schema-extend.sql`）：
+`hxt_ai_chat_record`、`hxt_token_usage`、`hxt_ai_trace`、`hxt_tool_call_log`、
+`hxt_knowledge_doc`、`hxt_knowledge_chunk`、`hxt_user_ai_profile`。
 
-**代码映射：**
-- gender: 1=男, 2=女
-- degree: 1=初中, 2=高中, 3=大专, 4=本科, 5=硕士, 6=博士
-- job: 1=班主任, 2=讲师, 3=学工主管, 4=教研主管, 5=咨询师
-- subject: 1=Java, 2=前端, 3=大数据, 4=Python, 5=Go, 6=嵌入式
+字段映射：
+- gender：1=男，2=女
+- degree：1=初中，2=高中，3=大专，4=本科，5=硕士，6=博士
+- job：1=班主任，2=讲师，3=学工主管，4=教研主管，5=咨询师
+- subject：1=Java，2=前端，3=大数据，4=Python，5=Go，6=嵌入式
 
-### API Endpoints
-- `POST /login` - 登录（获取JWT token）
-- `POST /ai/chat` - AI聊天（SSE流式，支持 sessionId）
-- `POST /ai/chat/sync` - AI同步聊天（测试用）
-- `GET/POST /depts` - 部门管理
-- `GET/POST /emps` - 员工管理
-- `GET/POST /clazzs` - 班级管理
-- `GET/POST /students` - 学员管理
-- `GET /report/*` - 数据统计
+## 主要接口
 
-### Configuration
-- `application.yml` - 数据库、Redis、AI 多模型配置
-- AI API Key: 环境变量 `deepseek-api` / `mimo-api` / `longcat-api`
-- Redis: 默认 `localhost:6379`，无密码
-- MySQL: 默认 `localhost:3306/tlias`，root/123456
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/login` | 登录，返回 JWT |
+| POST | `/ai/chat` | SSE 流式对话 |
+| POST | `/ai/chat/sync` | 同步对话（调试） |
+| GET | `/ai/history?sessionId=` | 会话历史 |
+| GET/POST/DELETE | `/ai/models` | 模型注册表 |
+| GET | `/ai-stats/overview\|tokens-24h\|model-distribution` | 用量统计 |
+| GET/POST | `/attendance`、`/courses`、`/scores`、`/payments`、`/employments`、`/notices`、`/violations` | 业务 CRUD |
+| GET/POST | `/knowledge/*` | 知识库上传/检索/文档管理 |
 
-## AI Prompt 设计（RTCF 框架）
+## 配置
 
-System Prompt 遵循 Role-Task-Context-Format 结构：
-- **Role**: Tlias智能教务系统AI助手
-- **Task**: 三种行为（业务查询/日常回答/意图确认）
-- **Context**: 系统数据范围、可用工具、代码映射
-- **Format**: 纯文本，`<result>` 包裹最终答案
+- `application.yml`：数据源 `jdbc:mysql://127.0.0.1:3307/huixuetong`、Redis `localhost:6379`
+- `config/models.json`：模型注册表（OpenAI 兼容协议），API Key 以 `enc:` AES-GCM 存储
+- 环境变量：`DB_PASSWORD`、`MODEL_KEY_SECRET`、`JWT_SECRET`
+- 旧变量 `deepseek-api` / `mimo-api` 仍可用于本机密钥注入
 
-AI 响应结构：`<thinking>` 中间推理 + `<result>` 最终答案，服务端只取 `<result>`。
+## 前端
 
-Few-Shot 示例 3 个：业务查询、日常回答、意图确认。
+```bash
+cd frontend
+npm install
+npm run dev      # 5173，/api 代理到 8080
+npm run build    # 产物 dist/
+```
 
-## Development Notes
+## 已知问题（改动前先看）
 
-### 前端开发
-- Vue 3 源码在 `C:\Users\mq\Desktop\vue-tlias-management`
-- 修改后执行 `npm run build`，将 `dist/` 复制到 `front-dist/dist/`
-- 前端自动生成 sessionId（crypto.randomUUID），每次请求带上
+1. MySQL 5.5 已停用，所有配置统一指向 8.0（`127.0.0.1:3307`）；历史 5.5 仅作回滚，见 `docs/MySQL8.0安装与切换手册.md`。
+2. 密码当前为明文比对（`EmpServiceImpl.login`），未使用 BCrypt。
+3. `AnswerValidator`、`UserProfileMemory` 尚未接入主链路（`AiTrace`、`KnowledgeRagAdvisor` 已接入）。
+4. 角色仅有 `ADMIN`，`@RequiresRole` 只校验登录状态。
+5. 考勤写接口（含批量删除）、考试 CRUD 与页面已补齐；待办只剩预警、RBAC 与学生端。
 
-### 后端开发
-- `@EnableAsync` 已启用，`@Async` 方法异步执行
-- Redis 使用 `StringRedisTemplate`，JSON 序列化
-- ChatClient 按模型缓存（ConcurrentHashMap），避免重复创建
-- `<result>` 标签提取逻辑在 `TliasAgentServiceImpl.extractResult()`
+## 约束
 
-### 调试 AI 功能
-1. 使用 `/ai/chat/sync` 接口测试同步响应
-2. 检查日志中的 `Agent 原始响应` 和 `Agent 最终回答`
-3. 验证 Redis: `redis-cli LRANGE ai:chat:session:{userId}:{sessionId} 0 -1`
-4. 验证 MySQL: `SELECT * FROM tlias_ai_chat_record ORDER BY id DESC LIMIT 10`
-
-## Security Best Practices
-
-### 必须遵守
-1. **参数校验**: Controller 使用 `@Valid` + JSR303
-2. **权限控制**: JWT 拦截器自动校验
-3. **事务管理**: `@Transactional(rollbackFor = Exception.class)`
-4. **日志脱敏**: 不打印密码、手机号等敏感信息
-5. **异步持久化**: 对话记录用 `@Async`，不阻塞 SSE 响应
-
-### 禁止事项
-- 禁止在日志中打印密码、手机号等敏感信息
-- 禁止在代码中硬编码密钥、密码
-- 禁止直接拼接SQL（必须使用MyBatis参数化）
-- 禁止将 `.iml`、`target/`、`logs/` 等提交到Git
+- 不提交 `target/`、`logs/`、`.iml`、`.env`、`config/models.json`
+- 日志不得输出密码、手机号、API Key
+- SQL 必须参数化，禁止字符串拼接
+- 分页统一走 `PageQuery.of(page, pageSize)` → mapper `LIMIT/OFFSET` + `countPage` → `PageResult`；禁止 `findAll()` + `subList()`（不引入 PageHelper，保证离线构建）
+- 修改 AI 链路后至少回归：登录、`/ai/chat/sync`、`/ai/chat`（SSE）、`/knowledge/upload`

@@ -1,9 +1,9 @@
 spring:
   datasource:
-    driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/tlias_test
-    username: root
-    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3307/huixuetong?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci&allowPublicKeyRetrieval=true
+    username: huixuetong
+    password: ${DB_PASSWORD:huixuetong123456}
 
 # AI 智能助手配置（测试环境）
 ai:
@@ -23,4 +23,4 @@ mybatis:
 logging:
   level:
     org.springframework.jdbc.support.JdbcTransactionManager: debug
-    com.itheima.security.sql: debug
+    com.huixuetong.security.sql: debug

@@ -147,6 +147,14 @@ const submitPassword = async () => {
                 <el-icon><Collection /></el-icon>
                 <span>课程管理</span>
               </el-menu-item>
+              <el-menu-item index="/exam">
+                <el-icon><EditPen /></el-icon>
+                <span>考试管理</span>
+              </el-menu-item>
+              <el-menu-item index="/schedule">
+                <el-icon><Timer /></el-icon>
+                <span>课表查询</span>
+              </el-menu-item>
               <el-menu-item index="/attendance">
                 <el-icon><Calendar /></el-icon>
                 <span>考勤记录</span>
@@ -170,6 +178,10 @@ const submitPassword = async () => {
               <el-menu-item index="/notice">
                 <el-icon><Bell /></el-icon>
                 <span>通知公告</span>
+              </el-menu-item>
+              <el-menu-item index="/knowledge">
+                <el-icon><Document /></el-icon>
+                <span>知识库管理</span>
               </el-menu-item>
             </el-sub-menu>
 
@@ -202,6 +214,10 @@ const submitPassword = async () => {
               <el-menu-item index="/emp">
                 <el-icon><Avatar /></el-icon>
                 <span>员工管理</span>
+              </el-menu-item>
+              <el-menu-item index="/ai-logs">
+                <el-icon><Tickets /></el-icon>
+                <span>AI 调用日志</span>
               </el-menu-item>
             </el-sub-menu>
 

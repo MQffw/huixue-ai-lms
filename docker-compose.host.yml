@@ -1,0 +1,43 @@
+# ============================================================
+# 方案 B：只容器化应用，复用宿主机 MySQL 8 / Redis（省内存）
+#   适用于 101 已经跑着 lease 的 MySQL/Redis，且机器内存不宽裕
+#   启动：docker compose -f docker-compose.host.yml up -d --build
+# 前置：
+#   1) 宿主机建库建用户：
+#      CREATE DATABASE huixuetong DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+#      CREATE USER 'huixuetong'@'%' IDENTIFIED BY '...';   -- 或 'huixuetong'@'172.17.%'
+#      GRANT ALL ON huixuetong.* TO 'huixuetong'@'%';
+#   2) Redis 用 database 1，避免与 lease 的 DB 0 混用
+# ============================================================
+name: huixuetong-host
+
+services:
+  huixuetong-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: huixuetong-app
+    extra_hosts:
+      # Linux 上让容器能访问宿主机 127.0.0.1
+      - "host.docker.internal:host-gateway"
+    environment:
+      TZ: Asia/Shanghai
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://host.docker.internal:3306/huixuetong?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: huixuetong
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?请在 .env 中设置 DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: host.docker.internal
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SPRING_DATA_REDIS_DATABASE: "1"
+      MODEL_KEY_SECRET: ${MODEL_KEY_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+    volumes:
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    ports:
+      # 绑定 127.0.0.1 更安全；要让 102 反代则改成 "8082:8080"
+      - "127.0.0.1:8082:8080"
+    restart: unless-stopped

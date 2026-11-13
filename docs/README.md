@@ -31,7 +31,7 @@
 | `src/`、`frontend/` | 源码 | 是 |
 | `config/models.json` | 模型注册表（含加密 Key） | 否 |
 | `deploy/` | nginx 反代 `default.conf`、库初始化 SQL（`mysql-init/`）、Maven 镜像配置（`maven/`）、本机 MySQL 8 实例模板（`mysql80/`） | 是 |
-| `scripts/` | 只放 Docker 启停：`dev-up.bat` / `dev-down.bat` | 是 |
+| `scripts/` | Docker 启停 `dev-up.bat` / `dev-down.bat`，公网临时隧道 `tunnel.bat` | 是 |
 | `uploads/` | 知识库原始文件（数据库里有引用，**勿删**） | 否 |
 | `target/`、`logs/`、`frontend/dist/` | 构建与运行产物，可随时删 | 否 |
 

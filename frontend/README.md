@@ -1,35 +1,45 @@
-# huixuetong-web
+# huixuetong-web（前端）
 
-This template should help get you started developing with Vue 3 in Vite.
+慧学通前端：Vue 3 + Vite + Element Plus + Pinia + ECharts。
 
-## Recommended IDE Setup
+> 整体启动流程（含数据库、后端）见根目录 [`README.md`](../README.md)；
+> Docker 开发环境与踩坑记录见 [`docs/本地Docker开发环境.md`](../docs/本地Docker开发环境.md)。
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
+## 开发
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 npm install
+npm run dev          # http://localhost:5173
 ```
 
-### Compile and Hot-Reload for Development
+后端默认跑在 `8080`，`/api` 请求由 Vite dev server 代理过去（见 `vite.config.js`）。
+后端换了地址时用环境变量覆盖，不用改代码：
 
-```sh
-npm run dev
+```bash
+VITE_PROXY_TARGET=http://localhost:18080 npm run dev
 ```
 
-### Compile and Minify for Production
+## 构建与检查
 
-```sh
-npm run build
+```bash
+npm run build        # 产物在 dist/
+npm run preview      # 本地预览构建结果
+npm run lint         # ESLint
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+生产环境不直接跑 dev server：`Dockerfile.web` 会把 `dist/` 打进 Nginx 镜像，
+由 `deploy/nginx/default.conf` 负责 `/` 静态资源与 `/api` 反代（对外只暴露 8088）。
 
-```sh
-npm run lint
+## 目录
+
+```
+src/
+├── api/          # axios 封装与接口定义
+├── assets/       # 静态资源
+├── components/   # 通用组件
+├── composables/  # 组合式函数
+├── router/       # 路由表
+├── stores/       # Pinia 状态
+├── utils/        # 工具函数
+└── views/        # 页面
 ```

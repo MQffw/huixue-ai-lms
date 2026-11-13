@@ -148,11 +148,15 @@
 
 ### 环境要求
 
-- JDK 18+
-- Maven 3.6+
-- MySQL（8.0，`127.0.0.1:3307`，含 `huixuetong` 库）
-- Redis（3.x+）
-- 至少一个 OpenAI 兼容模型的 API Key
+| 依赖 | 版本 | 说明 |
+|---|---|---|
+| JDK | 18+ | 必需 |
+| Maven | 3.6+ | 必需 |
+| Node.js | 18+ | 前端必需 |
+| Docker Desktop | 较新版本 | **推荐**：MySQL / Redis 由容器提供 |
+| 一个 OpenAI 兼容模型的 API Key | — | AI 功能必需 |
+
+不用 Docker 时也可在本机装 MySQL 8.0（`127.0.0.1:3307`）与 Redis（`6379`），见方式 B。
 
 ### 1. 克隆项目
 
@@ -161,29 +165,46 @@ git clone https://github.com/MQffw/huixue-ai-lms.git
 cd huixue-ai-lms
 ```
 
-### 2. 数据库初始化
+### 2. 配置环境变量（可选）
 
-```sql
-CREATE DATABASE huixuetong DEFAULT CHARACTER SET utf8;
-USE huixuetong;
-SOURCE src/main/resources/db/schema-extend.sql;
+```bash
+cp .env.example .env      # Windows: copy .env.example .env
 ```
 
-> 说明：`schema-extend.sql` 仅含 AI 模块扩展表；业务基础表（emp/dept/student 等）需从现有数据库导出导入，或按业务自行初始化。
+`.env` 已被 gitignore，用于覆盖数据库密码、`MODEL_KEY_SECRET` 等。**不建也能跑**：`application.yml` 里是
+`optional:file:./.env`，文件不存在时直接用默认值（此时 `MODEL_KEY_SECRET` 为空，启动会打印一条开发默认密钥告警）。
 
-### 3. 启动 Redis
+### 3. 启动依赖（MySQL + Redis）
 
-> **现状（2026-11 起）**：Redis 与 MySQL 都由 Docker 提供，见 [`docs/本地Docker开发环境.md`](docs/本地Docker开发环境.md)。
-> 应用侧原有的 `app.redis-auto-start` / `app.mysql-auto-start` 自动启停逻辑**已于 2026-11 移除**，
-> 应用只负责连接，不再去拉起 Windows 服务或本机进程。依赖统一由 `scripts/dev-up.bat` 启动。
+**方式 A：Docker（推荐）**
 
-不用 Docker、需要手工起本机 Redis 时：
+```bash
+scripts\dev-up.bat
+```
+
+脚本会等 Docker 引擎就绪 → 启动 `hxt-dev-mysql`(3307) / `hxt-dev-redis`(6379) → 等健康检查通过。
+首次启动用 `deploy/mysql-init/01-huixuetong.sql` 初始化 `huixuetong` 库（26 张表）。
+IDEA 里直接 Run 即可，**不需要任何 `-D` 参数**（应用侧自动启停逻辑已于 2026-11 移除）。
+
+> **全新克隆需要注意**：该 dump 含真实业务数据，已被 `.gitignore` 排除，仓库里只有 `.gitkeep` 占位。
+> 也就是说干净克隆后 `deploy/mysql-init/` 是空的，`up` 出来是**空库**。
+> 请自备 dump 放进该目录，或改用下面的手工导入，详见 [`docs/本地Docker开发环境.md`](docs/本地Docker开发环境.md)。
+
+**方式 B：本机依赖**
+
+```sql
+CREATE DATABASE huixuetong DEFAULT CHARACTER SET utf8mb4;
+USE huixuetong;
+SOURCE src/main/resources/db/schema-extend.sql;   -- AI 模块扩展表
+```
+
+> `schema-extend.sql` 仅含 AI 模块扩展表；业务基础表（emp/dept/student 等）需从现有库导出导入。
+
+Redis 手工启动：
 
 ```bash
 D:/Redis-8.8.0-Windows-x64-cygwin/redis-server.exe D:/Redis-8.8.0-Windows-x64-cygwin/redis.conf
 ```
-
-端口 6379、无密码，与 `application.yml` 的 `spring.data.redis.*` 一致。
 
 ### 4. 启动后端
 
@@ -191,7 +212,7 @@ D:/Redis-8.8.0-Windows-x64-cygwin/redis-server.exe D:/Redis-8.8.0-Windows-x64-cy
 mvn spring-boot:run
 ```
 
-后端默认端口 `8080`。首次启动会自动生成 `config/models.json`（从 `models.json.example` 拷贝）。
+或在 IDEA 里 Run `HuixuetongApplication`。后端默认端口 `8080`，首次启动会从 `models.json.example` 生成 `config/models.json`。
 
 ### 5. 配置模型与密钥
 
@@ -230,10 +251,19 @@ npm run dev
 
 ### 7. 访问
 
-| 服务 | 地址 |
-|------|------|
-| 前端 | http://localhost:5173 |
-| 后端 API / Swagger | http://localhost:8080/swagger-ui.html |
+| 场景 | 地址 | 说明 |
+|---|---|---|
+| 前端（开发） | http://localhost:5173 | `npm run dev`，`/api` 由 Vite 代理到 8080 |
+| 后端 API / Swagger | http://localhost:8080/swagger-ui.html | 直连后端 |
+| 前端 + 后端（容器全栈） | http://localhost:8088 | Nginx 反代，单端口，见下方说明 |
+
+**给别人访问 / 交付演示**：全栈容器只暴露 8088，可再挂公网隧道：
+
+```bash
+mvn -B -DskipTests package
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d   # 应用 8088
+scripts\tunnel.bat                                                       # 可选：公网临时地址
+```
 
 ### 8. 测试账号
 
@@ -270,11 +300,17 @@ huixue-ai-lms/
 │   │   └── application.yml           # 配置文件
 │   └── test/java/                    # 单元测试
 ├── frontend/                         # Vue 3 前端源码
-├── docs/                             # 设计文档（含 API 文档、方案合集）
+├── deploy/                           # 部署资产：nginx 反代、mysql-init、Maven 镜像、MySQL8 模板
+├── scripts/                          # dev-up / dev-down / tunnel 三个批处理
+├── docs/                             # 工程文档（docs/ai/ 为 AI 方案）
+├── docker-compose.{yml,dev,debug,host,local}.yml
+├── Dockerfile / Dockerfile.runtime / Dockerfile.web
 ├── config/models.json                # 模型注册表（运行时生成，gitignore）
 ├── pom.xml
 └── README.md
 ```
+
+> `CLAUDE.md` 是 AI 编程助手的约定文件，必须留在根目录。文档导航见 [`docs/README.md`](docs/README.md)。
 
 ---
 
